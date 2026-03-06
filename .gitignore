@@ -47,3 +47,6 @@ KMS/logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+/business_info_happy_hound.txt
+

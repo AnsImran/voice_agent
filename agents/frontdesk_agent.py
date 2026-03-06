@@ -17,28 +17,28 @@ class FrontDeskAgent(BaseAgent):
     async def on_enter(self) -> None:
         """Called when agent starts."""
         await self.session.generate_reply(
-            instructions="Warmly greet the customer and introduce yourself as Michael from Doheny Surf Desk. "
-            "Ask how you can help them today - are they looking to book a surf lesson, "
-            "or do they have questions about surfing, lessons, or locations?"
+            instructions="Warmly greet the customer and introduce yourself as the front desk assistant for Happy Hound. "
+            "Ask how you can help today with daycare, boarding, training, grooming, or availability questions."
         )
     
     @function_tool
     async def start_booking(self, context: RunContext_T) -> BaseAgent:
-        """Start the booking process by transferring to Intake Agent.
-        
-        Use this when customer is ready to book a lesson.
-        
+        """Start request collection mode for availability and booking.
+
+        Phase I behavior:
+        - Collect service/date/time and relevant dog details
+        - Explain that staff will confirm final availability
+        - Keep user in FrontDeskAgent until live API integration is added
+
         Args:
             context: RunContext with userdata
             
         Returns:
-            IntakeAgent instance
+            FrontDeskAgent instance
         """
-        from agents.intake_agent import IntakeAgent
-        
         await self.session.say(
-            "Perfect! Let's get you booked for an awesome surf lesson. "
-            "I'll collect some information to find the perfect setup for you."
+            "Great, I can help with that. For now, I will collect your request and our team will confirm exact availability. "
+            "Please share the service you want, your preferred date and time, and a few details about your dog."
         )
         
-        return IntakeAgent(chat_ctx=self.chat_ctx)
+        return self

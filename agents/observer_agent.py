@@ -45,7 +45,7 @@ class ObserverAgent:
         self.conversation_history = []
         self.hints_sent = []
         self.last_eval_transcript_count = 0
-        self.eval_threshold = 3
+        self.eval_threshold = 2
         self._evaluating = False
         
         self._setup_listeners()
