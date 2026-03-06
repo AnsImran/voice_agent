@@ -1,0 +1,11 @@
+1.
+from repo base run:
+uv run python agent.py dev
+
+2. Go to: https://agents-playground.livekit.io
+
+3. Connect to ``happy_hound`` project
+
+4. Allow microphone, speaker & webcam
+
+5. press connect on top-right corner
