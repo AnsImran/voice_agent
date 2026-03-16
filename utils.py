@@ -1,8 +1,12 @@
-"""Utility functions for Doheny Surf Desk."""
-import yaml
-from pathlib import Path
+"""Utility functions for Happy Hound agent workflow."""
+import json
+import os
+import uuid
 from datetime import datetime
+from pathlib import Path
 import zoneinfo
+
+import yaml
 
 
 def load_reading_guidelines() -> str:
@@ -59,6 +63,75 @@ def load_prompt(filename: str, include_reading_guidelines: bool = True, **variab
             prompt_text = f"{guidelines}\n\n{'-' * 50}\n\n{prompt_text}"
     
     return prompt_text
+
+
+def parse_env_bool(name: str, default: bool = False) -> bool:
+    """Read a boolean environment flag."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def ensure_session_trace_id(userdata) -> str:
+    """Ensure a stable per-session correlation id exists on userdata."""
+    trace_id = getattr(userdata, "session_trace_id", None)
+    if not trace_id:
+        trace_id = f"hh-{uuid.uuid4().hex[:10]}"
+        setattr(userdata, "session_trace_id", trace_id)
+    return trace_id
+
+
+def format_trace_payload(payload: dict) -> str:
+    """Format trace payload safely for log lines."""
+    try:
+        return json.dumps(payload, default=str, ensure_ascii=False)
+    except Exception:
+        return str(payload)
+
+
+def trace_log(logger, flag_name: str, trace_id: str, message: str, **payload) -> None:
+    """Emit env-gated trace logs with a correlation id."""
+    if not parse_env_bool(flag_name, default=False):
+        return
+    if payload:
+        logger.info("[TRACE][%s] %s %s", trace_id, message, format_trace_payload(payload))
+    else:
+        logger.info("[TRACE][%s] %s", trace_id, message)
+
+
+def userdata_snapshot(userdata) -> dict:
+    """Capture a compact state snapshot for debugging diffs."""
+    return {
+        "name": getattr(userdata, "name", None),
+        "phone": getattr(userdata, "phone", None),
+        "dog_weight_lbs": getattr(userdata, "dog_weight_lbs", None),
+        "dog_size": getattr(userdata, "dog_size", None),
+        "service_family": getattr(userdata, "service_family", None),
+        "service_plan": getattr(userdata, "service_plan", None),
+        "requested_services": list(getattr(userdata, "requested_services", []) or []),
+        "requested_date": getattr(userdata, "requested_date", None),
+        "requested_time": getattr(userdata, "requested_time", None),
+        "booking_id": getattr(userdata, "booking_id", None),
+        "quoted_subtotal": getattr(userdata, "quoted_subtotal", None),
+        "quoted_tax": getattr(userdata, "quoted_tax", None),
+        "quoted_total": getattr(userdata, "quoted_total", None),
+        "quote_notes": getattr(userdata, "quote_notes", None),
+        "handoff_status": getattr(userdata, "handoff_status", None),
+        "handoff_pending_action": getattr(userdata, "handoff_pending_action", None),
+    }
+
+
+def userdata_diff(before: dict, after: dict) -> dict:
+    """Return changed fields between two snapshots."""
+    changes: dict = {}
+    keys = set(before.keys()) | set(after.keys())
+    for key in sorted(keys):
+        old_val = before.get(key)
+        new_val = after.get(key)
+        if old_val != new_val:
+            changes[key] = {"before": old_val, "after": new_val}
+    return changes
 
 
 def format_booking_summary(userdata) -> str:

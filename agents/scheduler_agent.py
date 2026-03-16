@@ -1,331 +1,502 @@
-"""Scheduler agent for booking lesson time slots."""
-import json
-from typing import Annotated
+"""Scheduler agent for Happy Hound service availability and booking."""
+from __future__ import annotations
+
+import hashlib
+import logging
+
 from livekit.agents.llm import function_tool
-from numpy import number
 
 from .base_agent import BaseAgent, RunContext_T
-from utils import load_prompt
-from tools.calendar_tools import get_mock_availability, create_mock_booking
-from tools.tide_tools import get_tide_schedule, get_surf_conditions, get_weather_forecast
+from tools.availability_provider import (
+    AvailabilityProvider,
+    MockAvailabilityProvider,
+    compute_selection_quote,
+    get_service_display_label,
+    resolve_service_selection,
+)
+from utils import (
+    ensure_session_trace_id,
+    get_current_date,
+    load_prompt,
+    trace_log,
+    userdata_diff,
+    userdata_snapshot,
+)
+
+logger = logging.getLogger("doheny-surf-desk.scheduler")
+
+
+def _normalize_time_token(value: str) -> str:
+    return value.replace(" ", "").lower()
 
 
 class SchedulerAgent(BaseAgent):
-    """Agent responsible for finding and booking lesson time slots."""
-    
-    def __init__(self, chat_ctx=None):
-        from utils import get_current_date
+    """Agent responsible for checking and confirming service availability."""
+
+    def __init__(
+        self,
+        chat_ctx=None,
+        provider: AvailabilityProvider | None = None,
+    ):
         super().__init__(
-            instructions=load_prompt('scheduler_prompt.yaml', current_date=get_current_date()),
+            instructions=load_prompt(
+                "scheduler_prompt.yaml",
+                current_date=get_current_date(),
+            ),
             chat_ctx=chat_ctx,
         )
-    
+        self.provider = provider or MockAvailabilityProvider()
+
+    async def on_enter(self) -> None:
+        """Auto-resume flow after handoff from intake without waiting for user speech."""
+        userdata = self.session.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        pending = getattr(userdata, "handoff_pending_action", None)
+        userdata.handoff_pending_action = None
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="scheduler.on_enter",
+            pending_action=pending,
+            summary=userdata.summarize(),
+        )
+
+        missing = []
+        if not (userdata.service_family or userdata.requested_services):
+            missing.append("service")
+        if not userdata.requested_date:
+            missing.append("date")
+        if not userdata.requested_time:
+            missing.append("time preference")
+
+        if missing:
+            await self.session.generate_reply(
+                instructions=(
+                    "You are now the SchedulerAgent. Continue immediately without waiting "
+                    "for additional user prompts. Ask only for the missing details: "
+                    f"{', '.join(missing)}. "
+                    "If the caller previously selected Golden Leash Club Card, preserve that plan."
+                )
+            )
+            return
+
+        await self.session.generate_reply(
+            instructions=(
+                "You already have service and scheduling preferences. "
+                "Briefly confirm them and immediately call check_availability."
+            )
+        )
+
+    def _resolve_selection(self, userdata, selection_value: str | None) -> tuple[str, str | None]:
+        existing_family = userdata.service_family or (
+            userdata.requested_services[0] if userdata.requested_services else None
+        )
+        family, plan = resolve_service_selection(
+            selection_value,
+            existing_family=existing_family,
+            existing_plan=userdata.service_plan,
+        )
+        return family, plan
+
+    def _get_slots(
+        self,
+        context: RunContext_T,
+        service_family: str,
+        date: str,
+        time_preference: str,
+    ) -> list[dict]:
+        slots = self.provider.get_slots(
+            service=service_family,
+            date=date,
+            time_preference=time_preference,
+            dog_size=context.userdata.dog_size,
+        )
+        return [slot.__dict__.copy() for slot in slots]
+
     @function_tool
     async def check_availability(
         self,
         context: RunContext_T,
-        date: str = None,
-        time_preference: str = None,
-        spot: str = None
+        service: str | None = None,
+        service_plan: str | None = None,
+        date: str | None = None,
+        time_preference: str | None = None,
     ) -> str:
-        """Check instructor availability for lesson booking.
-        
-        Returns a BRIEF list of available times only. User can then ask for details about specific slots.
-        
-        Args:
-            context: RunContext with userdata
-            date: Preferred date (uses userdata if not provided)
-            time_preference: Preferred time (uses userdata if not provided)
-            spot: Surf spot (uses userdata if not provided)
-            
-        Returns:
-            Brief list of available times
-        """
+        """Check service availability and return only a concise list of times."""
         userdata = context.userdata
-        
-        check_date = date or userdata.preferred_date or "tomorrow"
-        check_time = time_preference or userdata.preferred_time or "morning"
-        check_spot = spot or userdata.spot_location or "Doheny"
-        
-        context.userdata._last_checked_date = check_date
-        context.userdata._last_checked_time = check_time
-        context.userdata._last_checked_spot = check_spot
-        
-        slots = get_mock_availability(check_date, check_time, check_spot)
-        
-        response = f"AVAILABLE_TIMES for {check_date} at {check_spot}:\n"
-        times = [slot['time'] for slot in slots]
-        response += f"{', '.join(times)}\n\n"
-        
-        response += (
-            "IMPORTANT: Tell user ONLY the available times, like this:\n"
-            f"'We have lessons available at {', '.join(times)}. Which time works best for you, "
-            f"or would you like to hear more details about any of these slots?'\n\n"
-            "DO NOT read all the details yet. Wait for them to ask about a specific time or request details."
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.check_availability.call",
+            service=service,
+            service_plan=service_plan,
+            date=date,
+            time_preference=time_preference,
         )
-        
-        return response
-    
+
+        selection_value = service_plan or service or userdata.service_plan or userdata.service_family
+        service_family, selected_plan = self._resolve_selection(userdata, selection_value)
+
+        resolved_date = date or userdata.requested_date or "tomorrow"
+        resolved_time_pref = time_preference or userdata.requested_time or "anytime"
+        service_label = get_service_display_label(service_family, selected_plan)
+
+        slots = self._get_slots(
+            context=context,
+            service_family=service_family,
+            date=resolved_date,
+            time_preference=resolved_time_pref,
+        )
+
+        userdata.service_family = service_family
+        userdata.service_plan = selected_plan
+        userdata.selection_source = "scheduler.check_availability"
+        userdata.requested_services = [service_family]
+        userdata.requested_date = resolved_date
+        userdata.requested_time = resolved_time_pref
+        userdata._last_checked_service = service_family
+        userdata._last_checked_plan = selected_plan
+        userdata._last_checked_date = resolved_date
+        userdata._last_checked_time = resolved_time_pref
+        userdata._last_slots = slots
+        userdata.runtime_tool_facts["availability"] = {
+            "service_family": service_family,
+            "service_plan": selected_plan,
+            "service_label": service_label,
+            "date": resolved_date,
+            "time_preference": resolved_time_pref,
+            "times": [slot["time"] for slot in slots],
+        }
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_STATE",
+            trace_id=trace_id,
+            message="tool.check_availability.state_diff",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
+
+        if not slots:
+            return (
+                f"NO_AVAILABILITY: No {service_label} slots were found for {resolved_date}. "
+                "Use suggest_alternative_times to offer nearby options."
+            )
+
+        available_times = ", ".join(slot["time"] for slot in slots)
+        return (
+            f"AVAILABLE_TIMES for {service_label} on {resolved_date}: {available_times}\n\n"
+            "IMPORTANT: Tell user only the available times and ask which one they prefer, "
+            "or whether they want details for a specific time."
+        )
+
     @function_tool
     async def get_slot_details(
         self,
         context: RunContext_T,
-        time: str
+        time: str,
+        service: str | None = None,
+        service_plan: str | None = None,
+        date: str | None = None,
     ) -> str:
-        """Get detailed information about a specific time slot.
-        
-        Use this when user asks for details about a specific time.
-        
-        Args:
-            context: RunContext with userdata
-            time: The time slot to get details for (e.g., "7:00 AM" or "07:00")
-            
-        Returns:
-            Detailed information about that slot
-        """
+        """Get details for one slot time, including quote data."""
         userdata = context.userdata
-        
-        check_date = getattr(userdata, '_last_checked_date', userdata.preferred_date or "tomorrow")
-        check_spot = getattr(userdata, '_last_checked_spot', userdata.spot_location or "Doheny")
-        check_time = getattr(userdata, '_last_checked_time', "morning")
-        
-        slots = get_mock_availability(check_date, check_time, check_spot)
-        conditions = get_surf_conditions(check_date, check_spot)
-        
-        requested_slot = None
-        for slot in slots:
-            if time.replace(' ', '').lower() in slot['time'].replace(' ', '').lower():
-                requested_slot = slot
-                break
-        
-        if not requested_slot:
-            return f"ERROR: No slot found for {time}. Available times: {', '.join([s['time'] for s in slots])}"
-        
-        experience = userdata.experience_level.lower()
-        specialty = requested_slot['specialty'].lower()
-        
-        suitability = ""
-        if experience == 'beginner' and 'intermediate' in specialty:
-            suitability = "⚠️ Note: This instructor specializes in intermediate - may not be ideal for beginners."
-        elif experience == 'beginner' and ('beginner' in specialty or 'kids' in specialty):
-            suitability = "✓ Great match for beginners!"
-        elif experience == 'intermediate' and 'intermediate' in specialty:
-            suitability = "✓ Perfect match for your level!"
-        elif experience == 'advanced' and 'advanced' in specialty:
-            suitability = "✓ Excellent for advanced surfers!"
-        
-        response = f"DETAILS for {requested_slot['time']} slot:\n\n"
-        response += f"Instructor: {requested_slot['instructor']}\n"
-        response += f"Specialty: {requested_slot['specialty']} specialist\n"
-        response += f"Rating: {requested_slot['rating']}⭐\n"
-        response += f"Conditions: {requested_slot['tide_condition']}, {conditions['wave_height']}\n"
-        response += f"Price: ${requested_slot['price']}\n"
-        if suitability:
-            response += f"\n{suitability}\n"
-        
-        response += f"\nTell user: Present these details and ask if this slot works for them."
-        
-        return response
-    
+        trace_id = ensure_session_trace_id(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.get_slot_details.call",
+            time=time,
+            service=service,
+            service_plan=service_plan,
+            date=date,
+        )
+
+        selection_value = (
+            service_plan
+            or service
+            or getattr(userdata, "_last_checked_plan", None)
+            or getattr(userdata, "_last_checked_service", None)
+            or userdata.service_plan
+            or userdata.service_family
+        )
+        service_family, selected_plan = self._resolve_selection(userdata, selection_value)
+        service_label = get_service_display_label(service_family, selected_plan)
+
+        resolved_date = date or getattr(userdata, "_last_checked_date", None) or userdata.requested_date or "tomorrow"
+        resolved_time_pref = getattr(userdata, "_last_checked_time", None) or userdata.requested_time or "anytime"
+
+        slots: list[dict] = list(getattr(userdata, "_last_slots", []))
+        if not slots:
+            slots = self._get_slots(
+                context=context,
+                service_family=service_family,
+                date=resolved_date,
+                time_preference=resolved_time_pref,
+            )
+
+        requested = _normalize_time_token(time)
+        selected = next(
+            (
+                slot
+                for slot in slots
+                if requested in _normalize_time_token(slot["time"])
+                or _normalize_time_token(slot["time"]) in requested
+            ),
+            None,
+        )
+
+        if not selected:
+            available = ", ".join(slot["time"] for slot in slots) if slots else "none"
+            return f"ERROR: No slot found for {time}. Available times: {available}"
+
+        quote = compute_selection_quote(
+            service_family=service_family,
+            service_plan=selected_plan,
+            dog_size=userdata.dog_size,
+        )
+
+        userdata.runtime_tool_facts["slot_details"] = {
+            "service_family": service_family,
+            "service_plan": selected_plan,
+            "service_label": service_label,
+            "date": resolved_date,
+            "time": selected["time"],
+            "staff": selected["staff"],
+            "duration": selected["duration"],
+            "quoted_total": quote["total"],
+            "billing_cycle": quote["billing_cycle"],
+        }
+
+        details = (
+            f"SLOT_DETAILS:\n"
+            f"Service: {service_label}\n"
+            f"Date: {selected['date']}\n"
+            f"Time: {selected['time']}\n"
+            f"Staff: {selected['staff']}\n"
+            f"Duration: {selected['duration']}\n"
+            f"Quote: ${float(quote['total']):.2f} ({quote['billing_cycle']})\n"
+            f"Notes: {quote['quote_notes']}\n\n"
+            "Tell user: Present these details and ask if they want to confirm this slot."
+        )
+        return details
+
     @function_tool
     async def book_slot(
         self,
         context: RunContext_T,
         date: str,
         time: str,
-        instructor: str,
-        spot: str = None
+        service: str | None = None,
+        service_plan: str | None = None,
     ) -> str:
-        """Confirm and book a specific lesson slot.
-        
-        Args:
-            context: RunContext with userdata
-            date: Lesson date
-            time: Lesson time (e.g., "07:00")
-            instructor: Instructor name
-            spot: Surf spot location
-            
-        Returns:
-            Booking confirmation
-        """
+        """Book a slot and persist normalized request + quote state."""
         userdata = context.userdata
-        
-        booking_spot = spot or userdata.spot_location or "Doheny"
-        
-        if userdata.booking_id and userdata.instructor_name:
-            if userdata.instructor_name != instructor:
-                return (
-                    f"⚠️ BOOKING_CHANGE_DETECTED:\n"
-                    f"Current booking: {userdata.instructor_name} at {userdata.preferred_time}\n"
-                    f"Requested change: {instructor} at {time}\n\n"
-                    f"IMPORTANT: Before proceeding, verify this change was explicitly requested.\n"
-                    f"Tell user: 'Just to confirm - would you like me to change your booking from "
-                    f"{userdata.instructor_name} to {instructor}? This will also change your time from "
-                    f"{userdata.preferred_time} to {time}.'\n"
-                    f"If they confirm, call book_slot again. If they did NOT request this change, "
-                    f"apologize and keep the original booking."
-                )
-        
-        available_slots = get_mock_availability(date, time.split(':')[0] + ":00" if ':' in time else time, booking_spot)
-        
-        instructor_found = None
-        for slot in available_slots:
-            if instructor.lower() in slot['instructor'].lower():
-                instructor_found = slot
-                break
-        
-        if instructor_found:
-            specialty = instructor_found.get('specialty', '').lower()
-            experience = userdata.experience_level.lower()
-            
-            if experience == 'beginner' and 'intermediate' in specialty:
-                return (
-                    f"⚠️ SKILL_MISMATCH_WARNING:\n"
-                    f"Customer experience: {userdata.experience_level}\n"
-                    f"Instructor specialty: {instructor_found['specialty']}\n\n"
-                    f"SAFETY CONCERN: This instructor specializes in intermediate lessons, but the "
-                    f"customer is a beginner. This is not recommended for safety reasons.\n"
-                    f"Tell user: 'I notice {instructor} specializes in intermediate lessons, but you mentioned "
-                    f"you're a beginner. For your safety and the best learning experience, I'd recommend "
-                    f"an instructor who specializes in beginners. Would you like me to show you those options?'"
-                )
-        
-        booking = create_mock_booking(
-            customer_name=userdata.name,
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.book_slot.call",
             date=date,
             time=time,
-            spot=booking_spot,
-            instructor=instructor,
-            experience=userdata.experience_level
+            service=service,
+            service_plan=service_plan,
         )
-        
-        userdata.booking_id = booking['booking_id']
+
+        selection_value = service_plan or service or userdata.service_plan or userdata.service_family
+        service_family, selected_plan = self._resolve_selection(userdata, selection_value)
+        service_label = get_service_display_label(service_family, selected_plan)
+
+        slots = self._get_slots(
+            context=context,
+            service_family=service_family,
+            date=date,
+            time_preference="anytime",
+        )
+
+        requested = _normalize_time_token(time)
+        selected = next(
+            (
+                slot
+                for slot in slots
+                if requested in _normalize_time_token(slot["time"])
+                or _normalize_time_token(slot["time"]) in requested
+            ),
+            None,
+        )
+
+        if not selected:
+            available = ", ".join(slot["time"] for slot in slots) if slots else "none"
+            return (
+                f"BOOKING_FAILED: No {service_label} slot found for {time} on {date}. "
+                f"Available times: {available}"
+            )
+
+        booking_seed = hashlib.sha256(
+            f"{userdata.name}|{service_family}|{selected_plan}|{date}|{selected['time']}".encode("utf-8")
+        ).hexdigest()[:8].upper()
+        booking_id = f"HH-{booking_seed}"
+
+        quote = compute_selection_quote(
+            service_family=service_family,
+            service_plan=selected_plan,
+            dog_size=userdata.dog_size,
+        )
+
+        userdata.booking_id = booking_id
+        userdata.instructor_name = selected["staff"]
+        userdata.service_family = service_family
+        userdata.service_plan = selected_plan
+        userdata.selection_source = "scheduler.book_slot"
+        userdata.requested_services = [service_family]
+        userdata.requested_date = date
+        userdata.requested_time = selected["time"]
+        userdata.quoted_subtotal = float(quote["subtotal"])
+        userdata.quoted_tax = float(quote["tax"])
+        userdata.quoted_total = float(quote["total"])
+        userdata.total_amount = float(quote["total"])
+        userdata.quote_notes = (
+            f"{service_label} with {selected['staff']} at {selected['time']} ({selected['duration']}). "
+            f"{quote['quote_notes']}"
+        )
+        userdata.handoff_status = "pending"
+
+        # Keep legacy fields populated for backward compatibility with existing summary paths.
         userdata.preferred_date = date
-        userdata.preferred_time = time
-        userdata.spot_location = booking_spot
-        userdata.instructor_name = instructor
-        
-        return (f"✓ BOOKING_CONFIRMED:\n"
-                f"Booking ID: {booking['booking_id']}\n"
-                f"Date: {date} at {time}\n"
-                f"Location: {booking_spot}\n"
-                f"Instructor: {instructor}\n"
-                f"Duration: 2 hours\n"
-                f"Cancellation policy: Free cancellation up to 24 hours before lesson.\n"
-                f"Tell user: Booking confirmed successfully!")
-    
+        userdata.preferred_time = selected["time"]
+
+        userdata.runtime_tool_facts["booking"] = {
+            "booking_id": booking_id,
+            "service_family": service_family,
+            "service_plan": selected_plan,
+            "service_label": service_label,
+            "date": date,
+            "time": selected["time"],
+            "staff": selected["staff"],
+            "duration": selected["duration"],
+            "quote": quote,
+        }
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_STATE",
+            trace_id=trace_id,
+            message="tool.book_slot.state_diff",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
+
+        return (
+            f"BOOKING_CONFIRMED:\n"
+            f"Booking ID: {booking_id}\n"
+            f"Service: {service_label}\n"
+            f"Date: {date}\n"
+            f"Time: {selected['time']}\n"
+            f"Staff: {selected['staff']}\n"
+            f"Quoted Total: ${float(quote['total']):.2f} ({quote['billing_cycle']})\n\n"
+            "Tell user: Booking is confirmed and ask if they are ready to finalize the request."
+        )
+
     @function_tool
     async def suggest_alternative_times(
         self,
         context: RunContext_T,
-        reason: str = "No availability at requested time"
+        service: str | None = None,
+        service_plan: str | None = None,
+        date: str | None = None,
+        reason: str = "Requested time unavailable",
     ) -> str:
-        """Suggest alternative time slots when preferred time isn't available.
-        
-        Uses brief format - just times, not all details.
-        
-        Args:
-            context: RunContext with userdata
-            reason: Reason why alternative is needed
-            
-        Returns:
-            Brief alternative suggestions
-        """
+        """Suggest concise morning/afternoon alternatives."""
         userdata = context.userdata
-        
-        morning_slots = get_mock_availability(
-            userdata.preferred_date or "tomorrow",
-            "morning",
-            userdata.spot_location or "Doheny"
-        )
-        
-        afternoon_slots = get_mock_availability(
-            userdata.preferred_date or "tomorrow",
-            "afternoon",
-            userdata.spot_location or "Doheny"
-        )
-        
-        morning_times = [slot['time'] for slot in morning_slots[:3]]
-        afternoon_times = [slot['time'] for slot in afternoon_slots[:3]]
-        
-        response = f"ALTERNATIVE_TIMES:\n\n"
-        response += f"MORNING: {', '.join(morning_times)}\n"
-        response += f"AFTERNOON: {', '.join(afternoon_times)}\n\n"
-        
-        response += (
-            "IMPORTANT: Tell user these alternative times briefly:\n"
-            f"'We have morning slots at {', '.join(morning_times)} "
-            f"and afternoon slots at {', '.join(afternoon_times)}. "
-            f"Early morning lessons often have the best conditions. "
-            f"Which time interests you, or would you like details about any of these?'\n\n"
-            "Wait for them to choose or ask for details before showing full information."
-        )
-        
-        return response
+        trace_id = ensure_session_trace_id(userdata)
 
-    @function_tool(name="get_weather_forecast")
-    async def get_weather_forecast(self, context: RunContext_T, forecast_days: int) -> str:
-        """Get weather forecast for the next few days.
-        
-        Args:
-            context: RunContext with userdata
-            forecast_days: Number of days to forecast
-        """
-        weather_forecast = await get_weather_forecast(forecast_days)
-        return json.loads(weather_forecast)
-    
+        selection_value = service_plan or service or userdata.service_plan or userdata.service_family
+        service_family, selected_plan = self._resolve_selection(userdata, selection_value)
+        service_label = get_service_display_label(service_family, selected_plan)
+        resolved_date = date or userdata.requested_date or "tomorrow"
+
+        morning_slots = self._get_slots(
+            context=context,
+            service_family=service_family,
+            date=resolved_date,
+            time_preference="morning",
+        )
+        afternoon_slots = self._get_slots(
+            context=context,
+            service_family=service_family,
+            date=resolved_date,
+            time_preference="afternoon",
+        )
+
+        morning_times = [slot["time"] for slot in morning_slots[:3]]
+        afternoon_times = [slot["time"] for slot in afternoon_slots[:3]]
+        userdata.runtime_tool_facts["alternatives"] = {
+            "service_family": service_family,
+            "service_plan": selected_plan,
+            "service_label": service_label,
+            "date": resolved_date,
+            "morning_times": morning_times,
+            "afternoon_times": afternoon_times,
+            "reason": reason,
+        }
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.suggest_alternative_times",
+            service_family=service_family,
+            service_plan=selected_plan,
+            date=resolved_date,
+            reason=reason,
+            morning_times=morning_times,
+            afternoon_times=afternoon_times,
+        )
+
+        return (
+            f"ALTERNATIVE_TIMES for {service_label} (Reason: {reason}):\n"
+            f"MORNING: {', '.join(morning_times) if morning_times else 'none'}\n"
+            f"AFTERNOON: {', '.join(afternoon_times) if afternoon_times else 'none'}\n\n"
+            "Tell user: Share these times briefly and ask which option they prefer."
+        )
+
     @function_tool
-    async def get_surf_report(self, context: RunContext_T, date: str, spot: str) -> str:
-        """Get detailed surf conditions for planning.
-        
-        Args:
-            context: RunContext with userdata
-            date: Date to check
-            spot: Surf spot location
-            
-        Returns:
-            Detailed surf report
-        """
-        conditions = get_surf_conditions(date, spot)
-        tide_schedule = get_tide_schedule(date, spot)
-        
-        report = f"SURF_REPORT: {spot} on {date}:\n\n"
-        report += f"Waves: {conditions['wave_height']} @ {conditions['wave_period']}\n"
-        report += f"Wind: {conditions['wind']}\n"
-        report += f"Water temp: {conditions['water_temp']} - {conditions['wetsuit_recommendation']}\n"
-        report += f"Crowd level: {conditions['crowd_level']}\n"
-        report += f"Overall: {conditions['overall_rating']} conditions\n\n"
-        
-        report += "TIDE SCHEDULE:\n"
-        for tide in tide_schedule['tides']:
-            report += f"• {tide['time']} - {tide['type']} tide ({tide['height']})\n"
-        
-        report += f"\nBest times: {', '.join(tide_schedule['best_surf_times'])}\n"
-        report += "Tell user: Present this surf report to them."
-        
-        return report
-    
-    @function_tool
-    async def transfer_to_gear(self, context: RunContext_T) -> BaseAgent:
-        """Transfer to Gear Agent after booking is confirmed.
-        
-        Args:
-            context: RunContext with userdata
-            
-        Returns:
-            GearAgent instance
-        """
-        from agents.gear_agent import GearAgent
-        
+    async def transfer_to_billing(self, context: RunContext_T) -> BaseAgent:
+        """Transfer booking to BillingAgent for final confirmation + handoff."""
+        from agents.billing_agent import BillingAgent
+
         userdata = context.userdata
-        
+        trace_id = ensure_session_trace_id(userdata)
         if not userdata.is_booking_complete():
-            return "BLOCKED: Confirm a booking time slot before transferring to gear selection."
-        
-        await self.session.say(
-            "Perfect! Your lesson is all set. Now let's move on to the next step and "
-            "get you set up with the right surfboard and wetsuit."
-        )
-        
-        return GearAgent(chat_ctx=self.chat_ctx)
+            return "BLOCKED: Confirm service, date, and time before moving to billing."
+        if not userdata.booking_id:
+            return "BLOCKED: Confirm a specific booking slot before moving to billing."
+        if userdata.quoted_total is None:
+            return "BLOCKED: Quoted total is missing. Confirm slot details first."
 
+        userdata.handoff_pending_action = "billing_on_enter"
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="scheduler.transfer_to_billing",
+            from_agent="SchedulerAgent",
+            to_agent="BillingAgent",
+            summary=userdata.summarize(),
+            runtime_tool_facts=userdata.runtime_tool_facts,
+        )
+
+        await self.session.say(
+            "Great, I have your service request and quote ready. "
+            "I'll transfer you to billing to confirm and finalize."
+        )
+
+        # Gear handoff is intentionally bypassed in this flow.
+        # To re-enable later, route Scheduler -> Gear -> Billing.
+        return BillingAgent(chat_ctx=self.chat_ctx)

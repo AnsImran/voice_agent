@@ -1,8 +1,19 @@
 """Front desk agent for initial consultation and routing."""
+import logging
+
 from livekit.agents.llm import function_tool
 
 from .base_agent import BaseAgent, RunContext_T
-from utils import load_prompt
+from tools.availability_provider import resolve_service_selection
+from utils import (
+    ensure_session_trace_id,
+    load_prompt,
+    trace_log,
+    userdata_diff,
+    userdata_snapshot,
+)
+
+logger = logging.getLogger("doheny-surf-desk.frontdesk")
 
 
 class FrontDeskAgent(BaseAgent):
@@ -22,23 +33,58 @@ class FrontDeskAgent(BaseAgent):
         )
     
     @function_tool
-    async def start_booking(self, context: RunContext_T) -> BaseAgent:
-        """Start request collection mode for availability and booking.
+    async def start_booking(
+        self,
+        context: RunContext_T,
+        service_request: str | None = None,
+    ) -> BaseAgent:
+        """Start booking workflow by transferring caller to IntakeAgent.
 
-        Phase I behavior:
-        - Collect service/date/time and relevant dog details
-        - Explain that staff will confirm final availability
-        - Keep user in FrontDeskAgent until live API integration is added
+        Phase behavior:
+        - Move from consultation into profile collection
+        - Preserve conversation context during handoff
 
         Args:
             context: RunContext with userdata
             
         Returns:
-            FrontDeskAgent instance
+            IntakeAgent instance
         """
-        await self.session.say(
-            "Great, I can help with that. For now, I will collect your request and our team will confirm exact availability. "
-            "Please share the service you want, your preferred date and time, and a few details about your dog."
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
+
+        family, plan = resolve_service_selection(
+            service_request,
+            existing_family=userdata.service_family
+            or (userdata.requested_services[0] if userdata.requested_services else None),
+            existing_plan=userdata.service_plan,
         )
-        
-        return self
+        userdata.service_family = family
+        userdata.service_plan = plan
+        userdata.requested_services = [family]
+        userdata.selection_source = "frontdesk.start_booking"
+        userdata.handoff_pending_action = "scheduler_on_enter"
+        userdata.runtime_tool_facts["frontdesk_selection"] = {
+            "service_request": service_request,
+            "service_family": family,
+            "service_plan": plan,
+        }
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="frontdesk.start_booking",
+            from_agent="FrontDeskAgent",
+            to_agent="IntakeAgent",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
+
+        await self.session.say(
+            "Great, I'll get this started. First I'll collect a few quick details "
+            "about you and your dog, then we'll check availability."
+        )
+
+        from agents.intake_agent import IntakeAgent
+        return IntakeAgent(chat_ctx=self.chat_ctx)

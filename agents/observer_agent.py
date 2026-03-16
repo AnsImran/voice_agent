@@ -1,317 +1,319 @@
-"""Observer agent for parallel guardrail monitoring."""
-import logging
+"""Observer agent for parallel hallucination monitoring."""
+from __future__ import annotations
+
 import asyncio
+import hashlib
 import json
+import logging
+from pathlib import Path
+
 from livekit.agents import ConversationItemAddedEvent
-from typing_extensions import TypedDict
 from livekit.agents.llm import ChatContext
 
-from utils import load_prompt
+from utils import ensure_session_trace_id, load_prompt, trace_log
 
 logger = logging.getLogger("doheny-surf-desk.observer")
 
 
-# Structured output schema for LLM evaluation
-class SafetyEvaluation(TypedDict):
-    """LLM evaluation result for safety/compliance issues."""
-    minor_detected: bool
-    injury_mentioned: bool
-    weather_concern: bool
-    skill_mismatch: bool
-    details: str  # Brief explanation of detected issues
-
-
 class ObserverAgent:
     """
-    Parallel observer that monitors conversations for safety and compliance.
-    
-    This agent does NOT join the main session as an active agent.
-    Instead, it listens to session events and sends guardrail hints when needed.
-    
-    Uses LLM-based judgment (similar to test judge() function) for intelligent
-    guardrail detection instead of simple keyword matching.
+    Parallel observer that monitors conversation quality and fact correctness.
+
+    This observer does not become the active voice agent. It listens to
+    conversation events and injects guardrail hints into the current agent
+    context when a hallucinated business fact is detected.
     """
-    
+
     def __init__(self, session, llm):
-        """Initialize the observer agent.
-        
-        Args:
-            session: AgentSession to monitor and inject guardrail hints into
-            llm: LLM instance for judging (optional, defaults to gpt-4o-mini)
-        """
         self.session = session
-        self.instructions = load_prompt('observer_prompt.yaml')
+        self.instructions = load_prompt("observer_prompt.yaml", include_reading_guidelines=False)
+        self.business_facts = self._load_business_facts()
         self.llm = llm
-        self.conversation_history = []
-        self.hints_sent = []
+        self.conversation_history: list[dict] = []
+        self.sent_signatures: set[str] = set()
         self.last_eval_transcript_count = 0
-        self.eval_threshold = 2
+        self.eval_threshold = 6  # 3 user + assistant pairs
         self._evaluating = False
-        
+        self._last_context_hash = ""
+
         self._setup_listeners()
-        
-        logger.info(f"ObserverAgent initialized: LLM={self.llm.model if hasattr(self.llm, 'model') else 'custom'}, eval_threshold={self.eval_threshold}")
-    
+
+        logger.info(
+            "ObserverAgent initialized: model=%s eval_threshold=%s",
+            self.llm.model if hasattr(self.llm, "model") else "custom",
+            self.eval_threshold,
+        )
+
+    def _load_business_facts(self) -> str:
+        """Load Happy Hound facts used as truth source for hallucination checks."""
+        facts_path = Path(__file__).resolve().parent.parent / "business_info_happy_hound.txt"
+        if facts_path.exists():
+            return facts_path.read_text(encoding="utf-8", errors="ignore")
+        logger.warning("Observer facts file missing: %s", facts_path)
+        return "Business facts file is unavailable."
+
+    @staticmethod
+    def _extract_text(event: ConversationItemAddedEvent) -> str:
+        chunks: list[str] = []
+        for content in event.item.content:
+            if isinstance(content, str):
+                chunks.append(content.strip())
+                continue
+
+            if isinstance(content, dict):
+                text = content.get("text")
+                if isinstance(text, str) and text.strip():
+                    chunks.append(text.strip())
+                continue
+
+            text_attr = getattr(content, "text", None)
+            if isinstance(text_attr, str) and text_attr.strip():
+                chunks.append(text_attr.strip())
+        return " ".join(chunk for chunk in chunks if chunk)
+
     def _setup_listeners(self):
         """Set up session event listeners."""
-        
+
         @self.session.on("conversation_item_added")
         def conversation_item_added(event: ConversationItemAddedEvent):
-            if event.item.role != "user":
+            role = event.item.role
+            if role not in {"user", "assistant"}:
+                return
+            trace_id = ensure_session_trace_id(self.session.userdata)
+
+            transcript_text = self._extract_text(event)
+            if not transcript_text:
                 return
 
-            transcript_text = ""
-            for content in event.item.content:
-                if isinstance(content, str):
-                    transcript_text += content
-            
-            logger.info(f"[OBSERVER] 📝 User turn completed: {transcript_text}")
-            
-            self.conversation_history.append({
-                "text": transcript_text,
-                "participant": "user",
-                "timestamp": None
-            })
-            
+            logger.info("[OBSERVER] Captured %s turn: %s", role, transcript_text)
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_OBSERVER",
+                trace_id=trace_id,
+                message="observer.capture_turn",
+                role=role,
+                transcript=transcript_text,
+            )
+            self.conversation_history.append(
+                {
+                    "text": transcript_text,
+                    "participant": role,
+                    "timestamp": None,
+                }
+            )
+
             total_segments = len(self.conversation_history)
             new_segments = total_segments - self.last_eval_transcript_count
-            
+
             if new_segments >= self.eval_threshold:
-                logger.info(f"[OBSERVER] 🔍 Triggering evaluation ({new_segments} segments)")
+                logger.info("[OBSERVER] Triggering evaluation (%s segments)", new_segments)
+                trace_log(
+                    logger=logger,
+                    flag_name="HH_TRACE_OBSERVER",
+                    trace_id=trace_id,
+                    message="observer.trigger_evaluation",
+                    total_segments=total_segments,
+                    new_segments=new_segments,
+                )
                 asyncio.create_task(self._evaluate_with_llm())
                 self.last_eval_transcript_count = total_segments
-    
+
     async def _evaluate_with_llm(self):
-        """Use LLM to evaluate recent conversation for guardrail triggers."""
+        """Use LLM to evaluate recent conversation for hallucinated facts."""
         if self._evaluating:
             return
-        
+
         self._evaluating = True
-        
         try:
-            recent_history = self.conversation_history[-10:]
+            trace_id = ensure_session_trace_id(self.session.userdata)
+            recent_history = self.conversation_history[-12:]
             if not recent_history:
                 return
-            
-            conversation_text = "\n".join([
-                f"{msg['participant']}: {msg['text']}"
-                for msg in recent_history
-            ])
-            
-            userdata = self.session.userdata
-            userdata_summary = self._format_userdata_summary(userdata)
-            
-            # Format the pre-loaded instructions with current context
+
+            conversation_text = "\n".join(
+                [f"{msg['participant']}: {msg['text']}" for msg in recent_history]
+            )
+            userdata_summary = self._format_userdata_summary(self.session.userdata)
+            tool_facts = self._format_tool_facts(self.session.userdata)
+            self._last_context_hash = hashlib.sha256(
+                f"{conversation_text}\n{tool_facts}".encode("utf-8")
+            ).hexdigest()
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_OBSERVER",
+                trace_id=trace_id,
+                message="observer.evaluate_context",
+                context_hash=self._last_context_hash,
+                userdata_summary=userdata_summary,
+                tool_facts=tool_facts,
+            )
+
             try:
                 eval_prompt = self.instructions.format(
                     conversation_text=conversation_text,
-                    userdata_summary=userdata_summary
+                    userdata_summary=userdata_summary,
+                    business_facts=self.business_facts,
+                    tool_facts=tool_facts,
                 )
-            except KeyError as e:
-                logger.error(f"Missing key in prompt formatting: {e}")
-                # Fallback to basic prompt if formatting fails
-                eval_prompt = f"Analyze this conversation: {conversation_text}"
+            except KeyError as exc:
+                logger.error("Missing key in observer prompt formatting: %s", exc)
+                eval_prompt = (
+                    "Review this conversation for incorrect business claims:\n"
+                    f"{conversation_text}"
+                )
 
             chat_ctx = ChatContext()
             chat_ctx.add_message(role="user", content=eval_prompt)
-            
+
             response_text = ""
             async with self.llm.chat(chat_ctx=chat_ctx) as stream:
                 async for chunk in stream:
                     if chunk.delta and chunk.delta.content:
                         response_text += chunk.delta.content
-            
+
             if not response_text:
                 return
-            
+
             eval_result = self._parse_eval_response(response_text)
-            
             if eval_result:
-                has_issues = any([
-                    eval_result.get('minor_detected'),
-                    eval_result.get('injury_mentioned'),
-                    eval_result.get('weather_concern'),
-                    eval_result.get('skill_mismatch'),
-                    eval_result.get('jack_detected')
-                ])
-                
-                if has_issues:
-                    logger.info(
-                        f"[OBSERVER] ⚠️ Issues detected: "
-                        f"minor={eval_result.get('minor_detected')}, "
-                        f"injury={eval_result.get('injury_mentioned')}, "
-                        f"weather={eval_result.get('weather_concern')}, "
-                        f"skill_mismatch={eval_result.get('skill_mismatch')}, "
-                        f"jack={eval_result.get('jack_detected')}"
-                    )
-                
                 await self._process_eval_result(eval_result)
-            
-        except Exception as e:
-            logger.error(f"Error during LLM evaluation: {e}", exc_info=True)
+        except Exception as exc:
+            logger.error("Error during observer LLM evaluation: %s", exc, exc_info=True)
         finally:
             self._evaluating = False
-    
+
     def _parse_eval_response(self, response_text: str) -> dict | None:
-        """Parse LLM response as JSON."""
+        """Parse LLM response as JSON and normalize fields."""
         try:
             result = json.loads(response_text.strip())
             if isinstance(result, dict):
                 return self._validate_eval_result(result)
         except json.JSONDecodeError:
             pass
-        
-        start = response_text.find('{')
-        end = response_text.rfind('}') + 1
+
+        start = response_text.find("{")
+        end = response_text.rfind("}") + 1
         if start >= 0 and end > start:
             try:
-                json_str = response_text[start:end]
-                result = json.loads(json_str.strip())
+                result = json.loads(response_text[start:end].strip())
                 if isinstance(result, dict):
                     return self._validate_eval_result(result)
             except json.JSONDecodeError:
                 pass
-        
-        logger.error(f"[OBSERVER] ⚠️ Failed to parse JSON response: {response_text[:150]}")
+
+        logger.error("[OBSERVER] Failed to parse JSON response: %s", response_text[:180])
         return None
-    
-    def _validate_eval_result(self, result: dict) -> dict:
-        """Validate and normalize evaluation result with defaults."""
+
+    @staticmethod
+    def _validate_eval_result(result: dict) -> dict:
+        """Validate and normalize hallucination schema with defaults."""
         return {
-            'minor_detected': bool(result.get('minor_detected', False)),
-            'injury_mentioned': bool(result.get('injury_mentioned', False)),
-            'weather_concern': bool(result.get('weather_concern', False)),
-            'skill_mismatch': bool(result.get('skill_mismatch', False)),
-            'jack_detected': bool(result.get('jack_detected', False)),
-            'details': str(result.get('details', ''))
+            "hallucination_detected": bool(result.get("hallucination_detected", False)),
+            "incorrect_claim": str(result.get("incorrect_claim", "")).strip(),
+            "correct_fact": str(result.get("correct_fact", "")).strip(),
+            "details": str(result.get("details", "")).strip(),
         }
-    
-    def _format_userdata_summary(self, userdata) -> str:
-        """Format userdata into a readable summary."""
+
+    @staticmethod
+    def _format_userdata_summary(userdata) -> str:
+        """Format lightweight session-state summary for observer grounding."""
         parts = []
         if userdata.name:
             parts.append(f"Name: {userdata.name}")
-        if userdata.age:
-            parts.append(f"Age: {userdata.age}")
-        if userdata.is_minor:
-            parts.append("MINOR FLAG: True")
-        if userdata.experience_level:
-            parts.append(f"Experience: {userdata.experience_level}")
-        if userdata.spot_location:
-            parts.append(f"Location: {userdata.spot_location}")
-        if userdata.has_injury:
-            parts.append("INJURY FLAG: True")
-        
+        if userdata.phone:
+            parts.append(f"Phone: {userdata.phone}")
+        if userdata.dog_weight_lbs is not None:
+            parts.append(f"DogWeightLbs: {userdata.dog_weight_lbs}")
+        if userdata.dog_size:
+            parts.append(f"DogSize: {userdata.dog_size}")
+        if userdata.requested_services:
+            parts.append(f"Services: {', '.join(userdata.requested_services)}")
+        if getattr(userdata, "service_family", None):
+            parts.append(f"ServiceFamily: {userdata.service_family}")
+        if getattr(userdata, "service_plan", None):
+            parts.append(f"ServicePlan: {userdata.service_plan}")
+        if userdata.requested_date:
+            parts.append(f"RequestedDate: {userdata.requested_date}")
+        if userdata.requested_time:
+            parts.append(f"RequestedTime: {userdata.requested_time}")
+        if userdata.quoted_total is not None:
+            parts.append(f"QuotedTotal: {userdata.quoted_total}")
+
         return ", ".join(parts) if parts else "No user data yet"
-    
+
+    @staticmethod
+    def _format_tool_facts(userdata) -> str:
+        """Serialize runtime tool facts for observer grounding."""
+        try:
+            return json.dumps(getattr(userdata, "runtime_tool_facts", {}), ensure_ascii=False)
+        except Exception:
+            return "{}"
+
     async def _process_eval_result(self, eval_result: dict):
-        """Process LLM evaluation results and send appropriate hints."""
-        details = eval_result.get('details', '')
-        
-        if eval_result.get('minor_detected') and 'minor_detected' not in self.hints_sent:
-            logger.warning("[OBSERVER] MINOR DETECTED - sending hint")
-            await self._send_guardrail_hint(
-                severity="CRITICAL",
-                trigger="Minor detected",
-                hint=(
-                    f"LLM Analysis: Customer appears to be under 18. {details}\n\n"
-                    "Action: Set is_minor=True flag and ensure ConsentTask is run before "
-                    "BillingAgent accepts payment. California law requires guardian consent."
-                )
-            )
-            self.hints_sent.append('minor_detected')
-        
-        if eval_result.get('injury_mentioned') and 'injury_mentioned' not in self.hints_sent:
-            logger.warning("[OBSERVER] INJURY MENTIONED")
-            await self._send_guardrail_hint(
-                severity="WARNING",
-                trigger="Injury/medical condition detected",
-                hint=(
-                    f"LLM Analysis: {details}\n\n"
-                    "Action: Recommend lighter/shorter session, provide safety disclaimer, "
-                    "suggest consulting their doctor. Set has_injury=True flag."
-                )
-            )
-            self.hints_sent.append('injury_mentioned')
-        
-        if eval_result.get('weather_concern') and 'weather_concern' not in self.hints_sent:
-            logger.warning("[OBSERVER] WEATHER CONCERN")
-            await self._send_guardrail_hint(
-                severity="WARNING",
-                trigger="Weather/surf conditions concern",
-                hint=(
-                    f"LLM Analysis: {details}\n\n"
-                    "Action: Warn about difficulty level and safety. Offer to reschedule "
-                    "if conditions exceed skill level. Safety first!"
-                )
-            )
-            self.hints_sent.append('weather_concern')
-        
-        if eval_result.get('skill_mismatch') and 'skill_mismatch' not in self.hints_sent:
-            logger.warning("[OBSERVER] SKILL MISMATCH")
-            await self._send_guardrail_hint(
-                severity="WARNING",
-                trigger="Skill/location mismatch",
-                hint=(
-                    f"LLM Analysis: {details}\n\n"
-                    "Action: Strongly recommend beginner-friendly location (Doheny). "
-                    "Explain safety concerns with advanced spots."
-                )
-            )
-            self.hints_sent.append('skill_mismatch')
-        
-        # Pretty stupid, but just for demo purposes
-        if eval_result.get('jack_detected') and 'jack_discount' not in self.hints_sent:
-            logger.warning("[OBSERVER] VIP CUSTOMER DETECTED (Jack)")
-            await self._send_guardrail_hint(
-                severity="INFO",
-                trigger="VIP Customer - Jack",
-                hint=(
-                    f"SPECIAL PROMOTION DETECTED: {details}\n\n"
-                    "Action: Immediately offer a special 50% discount on their surf lesson. "
-                    "Say something like 'Great news! We have a special promotion for you today - "
-                    "you're getting 50% off your surf lesson!' Be enthusiastic and make them feel special."
-                )
-            )
-            self.hints_sent.append('jack_discount')
-    
+        """Process hallucination output and inject corrective guardrail hint once per signature."""
+        if not eval_result.get("hallucination_detected"):
+            return
+
+        incorrect_claim = eval_result.get("incorrect_claim", "")
+        correct_fact = eval_result.get("correct_fact", "")
+        details = eval_result.get("details", "")
+        signature = hashlib.sha256(
+            f"{incorrect_claim}|{correct_fact}|{self._last_context_hash}".lower().encode("utf-8")
+        ).hexdigest()
+
+        if signature in self.sent_signatures:
+            return
+
+        logger.warning("[OBSERVER] Hallucination detected: %s", incorrect_claim or details)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_OBSERVER",
+            trace_id=ensure_session_trace_id(self.session.userdata),
+            message="observer.hallucination_detected",
+            incorrect_claim=incorrect_claim,
+            correct_fact=correct_fact,
+            details=details,
+            context_hash=self._last_context_hash,
+        )
+        await self._send_guardrail_hint(
+            severity="CRITICAL",
+            trigger="Potential business-fact hallucination",
+            hint=(
+                f"Incorrect claim: {incorrect_claim or 'Not specified'}\n"
+                f"Correct fact: {correct_fact or 'Not specified'}\n"
+                f"Analysis: {details or 'Fact mismatch with business info source.'}\n\n"
+                "Action: Correct the misinformation immediately, provide the verified fact, "
+                "and continue with accurate details only."
+            ),
+        )
+        self.sent_signatures.add(signature)
+
     async def _send_guardrail_hint(self, severity: str, trigger: str, hint: str):
         """Inject a guardrail hint into the active agent's context."""
-        logger.warning(f"[OBSERVER] {severity}: {trigger}")
-        logger.info(f"[OBSERVER] Hint: {hint}")
-        
-        if not hasattr(self.session, 'current_agent') or not self.session.current_agent:
+        logger.warning("[OBSERVER] %s: %s", severity, trigger)
+        logger.info("[OBSERVER] Hint: %s", hint)
+
+        if not hasattr(self.session, "current_agent") or not self.session.current_agent:
             logger.warning("No active agent to inject hint into")
             return
-        
+
         current_agent = self.session.current_agent
-        
         hint_message = f"""[GUARDRAIL ALERT - {severity}]: {trigger}
 
 {hint}
 
 ACKNOWLEDGMENT REQUIRED: In your next response, briefly acknowledge this alert and take the required action."""
-        
+
         ctx_copy = current_agent.chat_ctx.copy()
         ctx_copy.add_message(
             role="system",
-            content=hint_message
+            content=hint_message,
         )
-        
         await current_agent.update_chat_ctx(ctx_copy)
-    
 
 
 async def start_observer(session, llm=None):
-    """Start the observer agent for a session.
-    
-    Args:
-        session: AgentSession to monitor and inject guardrail hints into
-        llm: Optional LLM instance for evaluation (defaults to gpt-4o-mini)
-        
-    Returns:
-        ObserverAgent instance
-    """
+    """Start observer agent for an AgentSession."""
     observer = ObserverAgent(session, llm=llm)
-    logger.info("Observer agent started with LLM-based evaluation and context injection")
+    logger.info("Observer agent started with hallucination monitoring")
     return observer

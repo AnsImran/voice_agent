@@ -1,14 +1,25 @@
 """Intake agent for collecting customer profile information."""
-from livekit.agents.beta.workflows.email_address import GetEmailResult
-from livekit.agents.llm import function_tool
+import logging
+
 from livekit.agents.beta.workflows import TaskGroup
 
-from .base_agent import BaseAgent, RunContext_T
+from .base_agent import BaseAgent
+from tasks.dog_weight_task import DogWeightTask
 from tasks.name_task import NameTask
 from tasks.phone_task import PhoneTask
-from tasks.age_task import AgeTask
-from tasks.email_task import GetEmailTask
-from tasks.experience_task import ExperienceTask
+from utils import (
+    ensure_session_trace_id,
+    trace_log,
+    userdata_diff,
+    userdata_snapshot,
+)
+
+# Legacy intake tasks retained for future use:
+# from tasks.age_task import AgeTask
+# from tasks.email_task import GetEmailTask
+# from tasks.experience_task import ExperienceTask
+
+logger = logging.getLogger("doheny-surf-desk.intake")
 
 
 class IntakeAgent(BaseAgent):
@@ -38,25 +49,13 @@ class IntakeAgent(BaseAgent):
             id="phone_task",
             description="Collects phone number with confirmation"
         )
-        
+
         task_group.add(
-            lambda: AgeTask(),
-            id="age_task",
-            description="Collects age and detects if minor"
+            lambda: DogWeightTask(),
+            id="dog_weight_task",
+            description="Collects dog weight and size tier"
         )
-        
-        task_group.add(
-            lambda: GetEmailTask(),
-            id="email_task",
-            description="Collects email address"
-        )
-        
-        task_group.add(
-            lambda: ExperienceTask(),
-            id="experience_task",
-            description="Collects surfing experience level"
-        )
-        
+
         # Execute all tasks sequentially
         # Note: This will wait for user input for each task
         results = await task_group
@@ -64,19 +63,36 @@ class IntakeAgent(BaseAgent):
         
         # Update userdata from task results
         userdata = self.session.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
         userdata.name = task_results["name_task"].name
         userdata.phone = task_results["phone_task"].phone
-        userdata.age = task_results["age_task"].age
-        userdata.is_minor = task_results["age_task"].is_minor
-        userdata.email = task_results["email_task"].email_address
-        userdata.experience_level = task_results["experience_task"].experience_level
-        
+        userdata.dog_weight_lbs = task_results["dog_weight_task"].weight_lbs
+        userdata.dog_size = task_results["dog_weight_task"].dog_size
+        userdata.handoff_pending_action = "scheduler_on_enter"
+        userdata.selection_source = userdata.selection_source or "intake.tasks"
+        userdata.runtime_tool_facts["intake_profile"] = {
+            "name": userdata.name,
+            "phone": userdata.phone,
+            "dog_weight_lbs": userdata.dog_weight_lbs,
+            "dog_size": userdata.dog_size,
+        }
+
         await self.session.say(
-            f"Perfect, {userdata.name}! I've got your contact info and experience level. "
-            "Let me help you find the best time for your lesson."
+            f"Perfect, {userdata.name}! I have your contact details and your dog's size profile. "
+            "Now I'll check service availability for you."
         )
         
         # Transfer to scheduler agent with chat context
         from agents.scheduler_agent import SchedulerAgent
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="intake.complete_handoff",
+            from_agent="IntakeAgent",
+            to_agent="SchedulerAgent",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
         self.session.update_agent(SchedulerAgent(chat_ctx=self.chat_ctx))
 

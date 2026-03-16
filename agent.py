@@ -1,25 +1,23 @@
 """
 ---
-title: Doheny Surf Desk Booking Agent
+title: Happy Hound Booking Agent
 category: complex-agents
-tags: [multi_agent, tasks, task_groups, observer_pattern, guardrails, llm_evaluation, context_injection, phone_receptionist, booking_system, telephony]
+tags: [multi_agent, tasks, observer_pattern, llm_evaluation, context_injection, phone_receptionist]
 difficulty: advanced
-description: Phone receptionist agent for surf school bookings with background observer and task groups - great example for building phone-based booking systems
+description: Voice receptionist workflow for Happy Hound with parallel hallucination observer and structured handoff
 requires: livekit-agents>=1.3.0
 demonstrates:
-  - Complete phone receptionist workflow for appointment booking (you need to connect your calendar) and payment processing (demo, not real payment processing)
-  - Background observer agent that monitors conversation transcripts in real-time
-  - LLM-based evaluation every 3 user turns to detect safety issues (minors, injuries, weather concerns, skill mismatches, VIP customers)
-  - Context injection pattern - observer injects system messages into active agent's chat context as guardrails
-  - Task groups for sequential task execution with structured return values (profile collection, payment processing)
-  - Multi-agent workflow with 5 specialized agents (IntakeAgent, SchedulerAgent, GearAgent, BillingAgent, FrontDeskAgent)
-  - Observer can improve conversation quality by monitoring outputs in background
+  - FrontDesk -> Intake -> Scheduler -> Billing handoff pattern
+  - Background observer for hallucination/fact-check monitoring
+  - Task-based profile collection with typed results
+  - Structured session-state handoff for human follow-up
 ---
 """
 import logging
+import os
 from dotenv import load_dotenv
 
-from livekit.agents import ConversationItemAddedEvent, JobContext, WorkerOptions, cli, RoomInputOptions
+from livekit.agents import JobContext, RoomInputOptions, WorkerOptions, cli
 from livekit.agents.voice import AgentSession
 from livekit.plugins import silero, noise_cancellation, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -30,9 +28,9 @@ from agents.base_agent import SurfBookingData
 from agents.frontdesk_agent import FrontDeskAgent
 from agents.intake_agent import IntakeAgent
 from agents.scheduler_agent import SchedulerAgent
-from agents.gear_agent import GearAgent
 from agents.billing_agent import BillingAgent
 from agents.observer_agent import start_observer
+from utils import ensure_session_trace_id, trace_log
 
 # Load environment
 load_dotenv(dotenv_path='.env')
@@ -41,29 +39,30 @@ logger = logging.getLogger("doheny-surf-desk")
 
 
 async def entrypoint(ctx: JobContext):
-    """Main entrypoint for Doheny Surf Desk booking agent.
+    """Main entrypoint for Happy Hound booking agent.
     
     Sets up multi-agent session with:
-    - FrontDeskAgent: Greets and provides consultation or routes to booking
+    - FrontDeskAgent: Greets and routes callers into booking flow
     - IntakeAgent: Collects customer profile via sequential TaskGroup
-    - SchedulerAgent: Books lesson time slot with availability checking
-    - GearAgent: Recommends equipment based on measurements
-    - BillingAgent: Processes payment and sends confirmation via tasks
-    - ObserverAgent: Monitors for safety/compliance using LLM-based evaluation (parallel)
+    - SchedulerAgent: Checks service availability and confirms slots
+    - BillingAgent: Confirms total and sends SMTP handoff payload
+    - ObserverAgent: Monitors for hallucinated business facts (parallel)
     """
-    logger.info(f"Starting Doheny Surf Desk booking agent in room {ctx.room.name}")
+    logger.info("Starting Happy Hound booking agent in room %s", ctx.room.name)
     
     # Connect to the room
     await ctx.connect()
     
     # Initialize userdata for the session
     userdata = SurfBookingData()
+    userdata.email = os.getenv("DEFAULT_CUSTOMER_EMAIL")
+    trace_id = ensure_session_trace_id(userdata)
     
     # Create all agent instances
     frontdesk_agent = FrontDeskAgent()
     intake_agent = IntakeAgent()
     scheduler_agent = SchedulerAgent()
-    gear_agent = GearAgent()
+    # gear_agent = GearAgent()  # Gear flow intentionally bypassed in active path.
     billing_agent = BillingAgent()
     
     # Register all agents in userdata for handoffs
@@ -71,9 +70,16 @@ async def entrypoint(ctx: JobContext):
         "frontdesk": frontdesk_agent,
         "intake": intake_agent,
         "scheduler": scheduler_agent,
-        "gear": gear_agent,
+        # "gear": gear_agent,  # Keep disabled but available for future re-enable.
         "billing": billing_agent,
     }
+    trace_log(
+        logger=logger,
+        flag_name="HH_TRACE_HANDOFFS",
+        trace_id=trace_id,
+        message="entrypoint.personas_initialized",
+        personas=list(userdata.personas.keys()),
+    )
     
     # Create the agent session with LiveKit inference gateway
     session = AgentSession[SurfBookingData](
@@ -85,13 +91,16 @@ async def entrypoint(ctx: JobContext):
         turn_detection=MultilingualModel(),
     )
 
-    # Start the observer agent in parallel
-    # We will use another LLM for the observer agent (gpt-5 or any other thinking LLM, smarter but slower)
-    # We can use anyother thinking LLM here. This is not realtime, so it's not a problem.
-    # Otherwise we can share the same from main session.
-    # This is why you need OPENAI_API_KEY in your .env file also.
+    # Start observer in parallel using a stronger model for fact-check evaluation.
     llm = openai.LLM(model="gpt-5")
     await start_observer(session, llm)
+    trace_log(
+        logger=logger,
+        flag_name="HH_TRACE_HANDOFFS",
+        trace_id=trace_id,
+        message="entrypoint.observer_started",
+        observer_model="gpt-5",
+    )
     
     # Start the session with FrontDeskAgent
     logger.info("Starting session with FrontDeskAgent")

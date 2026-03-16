@@ -1,5 +1,6 @@
 """Task implementations for Doheny Surf Desk."""
 
+from tasks.dog_weight_task import DogWeightResult, DogWeightTask
 from tasks.name_task import NameTask, NameResult
 from tasks.phone_task import PhoneTask, PhoneResult
 from tasks.age_task import AgeTask, AgeResult
@@ -11,6 +12,8 @@ from tasks.notification_task import NotificationTask, NotificationResult
 from tasks.payment_details_task import PaymentDetailsTask, PaymentDetailsResult
 
 __all__ = [
+    'DogWeightTask',
+    'DogWeightResult',
     'NameTask',
     'NameResult',
     'PhoneTask',

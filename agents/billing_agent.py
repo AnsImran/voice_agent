@@ -1,321 +1,273 @@
-"""Billing agent for payment processing and booking finalization."""
+"""Billing agent for quote confirmation and structured handoff email."""
+from __future__ import annotations
+
+import logging
+
 from livekit.agents.llm import function_tool
-from livekit.agents.beta.workflows import TaskGroup
 
 from .base_agent import BaseAgent, RunContext_T
-from utils import load_prompt
-from tools.payment_tools import calculate_lesson_cost, process_mock_payment
-from tasks.notification_task import NotificationTask
-from tasks.consent_task import ConsentTask
-from tasks.payment_details_task import PaymentDetailsTask
+from tools.availability_provider import (
+    compute_selection_quote,
+    get_service_display_label,
+)
+from tools.handoff_email_tools import build_handoff_payload, send_handoff_email
+from utils import (
+    ensure_session_trace_id,
+    load_prompt,
+    trace_log,
+    userdata_diff,
+    userdata_snapshot,
+)
+
+logger = logging.getLogger("doheny-surf-desk.billing")
 
 
 class BillingAgent(BaseAgent):
-    """Agent responsible for payment processing and booking finalization."""
-    
+    """Agent responsible for final quote confirmation and human handoff."""
+
     def __init__(self, chat_ctx=None):
-        # Note: We need LLM for tasks to use session.generate_reply()
-        # Tasks will use the session's LLM, not the agent's LLM
         super().__init__(
-            instructions=load_prompt('billing_prompt.yaml'),
+            instructions=load_prompt("billing_prompt.yaml"),
             chat_ctx=chat_ctx,
         )
-    
+
+    def _quote_basis(self, userdata) -> dict:
+        return {
+            "service_family": userdata.service_family
+            or (userdata.requested_services[0] if userdata.requested_services else "daycare"),
+            "service_plan": userdata.service_plan,
+            "dog_size": userdata.dog_size,
+        }
+
+    def _ensure_quote(self, userdata, force_recompute: bool = False) -> dict:
+        basis = self._quote_basis(userdata)
+        stored_basis = userdata.runtime_tool_facts.get("quote_basis")
+
+        should_recompute = force_recompute or (
+            userdata.quoted_subtotal is None
+            or userdata.quoted_tax is None
+            or userdata.quoted_total is None
+            or stored_basis != basis
+        )
+
+        if should_recompute:
+            quote = compute_selection_quote(
+                service_family=basis["service_family"],
+                service_plan=basis["service_plan"],
+                dog_size=basis["dog_size"],
+            )
+            userdata.quoted_subtotal = float(quote["subtotal"])
+            userdata.quoted_tax = float(quote["tax"])
+            userdata.quoted_total = float(quote["total"])
+            userdata.quote_notes = str(quote["quote_notes"])
+            userdata.total_amount = float(quote["total"])
+            userdata.runtime_tool_facts["quote_basis"] = basis
+            userdata.runtime_tool_facts["active_quote"] = quote
+
+        if not userdata.handoff_status:
+            userdata.handoff_status = "pending"
+
+        service_label = get_service_display_label(
+            basis["service_family"],
+            basis["service_plan"],
+        )
+        return {
+            "service_label": service_label,
+            "billing_cycle": userdata.runtime_tool_facts.get("active_quote", {}).get(
+                "billing_cycle", "per_visit"
+            ),
+        }
+
     async def on_enter(self) -> None:
-        """Called when agent starts - calculate total first, then wait for user to proceed with payment."""
+        """Announce total and ask user for confirmation before sending handoff."""
         userdata = self.session.userdata
-        
-        # Calculate total immediately so it's available
-        import random
-        is_weekend = random.choice([True, False])
-        breakdown = calculate_lesson_cost(
-            time=userdata.preferred_time or "09:00",
-            is_weekend=is_weekend,
-            accessories=userdata.accessories
+        trace_id = ensure_session_trace_id(userdata)
+        pending = getattr(userdata, "handoff_pending_action", None)
+        userdata.handoff_pending_action = None
+
+        quote_meta = self._ensure_quote(userdata, force_recompute=True)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="billing.on_enter",
+            pending_action=pending,
+            quote_basis=userdata.runtime_tool_facts.get("quote_basis"),
+            quote=userdata.runtime_tool_facts.get("active_quote"),
         )
-        userdata.total_amount = breakdown['total']
-        
-        # Greet and let user know they can ask about cost or proceed to payment
+
         await self.session.say(
-            f"Great! I'm ready to finalize your booking. "
-            f"The total comes to ${userdata.total_amount:.2f}. "
-            f"Would you like to see a detailed breakdown, or are you ready to proceed with payment?"
+            f"You're all set for {quote_meta['service_label']}. "
+            f"Your total is ${userdata.quoted_total:.2f} ({quote_meta['billing_cycle']}). "
+            "If that looks good, I can send your full request to our team now."
         )
-        
-        # Note: We don't start TaskGroup here - it will be started when user is ready to pay
-        # This allows calculate_total and other functions to work freely
-    
+
     @function_tool
     async def calculate_total(self, context: RunContext_T) -> str:
-        """Calculate the total cost of the lesson with breakdown.
-        
-        Args:
-            context: RunContext with userdata
-            
-        Returns:
-            Detailed cost breakdown
-        """
+        """Show quote breakdown for the current request."""
         userdata = context.userdata
-        
-        import random
-        is_weekend = random.choice([True, False])
-        breakdown = calculate_lesson_cost(
-            time=userdata.preferred_time or "09:00",
-            is_weekend=is_weekend,
-            accessories=userdata.accessories
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.calculate_total.call",
         )
-        
-        userdata.total_amount = breakdown['total']
-        
-        response = "COST_BREAKDOWN:\n"
-        response += f"2-Hour Surf Lesson: ${breakdown['lesson']:.2f}\n"
-        
-        for discount in breakdown['discounts']:
-            response += f"{discount['name']}: ${discount['amount']:.2f}\n"
-        
-        for surcharge in breakdown['surcharges']:
-            response += f"{surcharge['name']}: +${surcharge['amount']:.2f}\n"
-        
-        if breakdown['accessories']:
-            response += "\nAccessories:\n"
-            for accessory in breakdown['accessories']:
-                response += f"  {accessory['name']}: ${accessory['amount']:.2f}\n"
-        
-        response += f"\nSubtotal: ${breakdown['subtotal']:.2f}\n"
-        response += f"Tax (7.75%): ${breakdown['tax']:.2f}\n"
-        response += f"TOTAL: ${breakdown['total']:.2f}\n"
-        response += "Tell user: Present this breakdown to them."
-        
-        return response
-    
-    @function_tool
-    async def apply_discount(
-        self,
-        context: RunContext_T,
-        promo_code: str
-    ) -> str:
-        """Apply a promotional discount code.
-        
-        Args:
-            context: RunContext with userdata
-            promo_code: Promo code to apply
-            
-        Returns:
-            Result of promo code application
-        """
-        from tools.payment_tools import apply_promo_code
-        
-        userdata = context.userdata
-        
-        if not userdata.total_amount:
-            return "BLOCKED: Calculate total first before applying discount."
-        
-        result = apply_promo_code(promo_code, userdata.total_amount)
-        
-        if result['valid']:
-            userdata.total_amount = result['new_total']
-            return (f"PROMO_APPLIED: Code '{result['code']}' - {result['description']}. "
-                   f"New total: ${result['new_total']:.2f} "
-                   f"(saved ${result['discount_amount']:.2f}). Tell user: Promo code applied successfully.")
-        else:
-            return f"INVALID_PROMO: {result.get('error', '')}. Tell user: That promo code isn't valid."
-    
-    @function_tool
-    async def check_minor_consent(self, context: RunContext_T) -> str:
-        """Check if minor consent is required and collected.
-        
-        Args:
-            context: RunContext with userdata
-            
-        Returns:
-            Consent status message
-        """
-        userdata = context.userdata
-        
-        if not userdata.is_minor:
-            return "CONSENT_STATUS: No guardian consent needed - customer is 18 or older."
-        
-        if userdata.guardian_consent:
-            return (f"CONSENT_STATUS: Guardian consent already obtained from {userdata.guardian_name}. "
-                   "Ready to proceed with payment.")
-        
-        return (f"CONSENT_REQUIRED: {userdata.name} is under 18. Use run_consent_task to collect guardian consent before payment.")
-    
-    @function_tool
-    async def run_consent_task(self, context: RunContext_T) -> str:
-        """Run the ConsentTask to collect guardian approval.
-        
-        Args:
-            context: RunContext with userdata
-            
-        Returns:
-            Result of consent collection
-        """
-        await context.wait_for_playout()
-        consent_result = await ConsentTask(chat_ctx=self.chat_ctx)
-        
-        if consent_result.approved:
-            return (f"CONSENT_OBTAINED: Guardian consent received from {consent_result.guardian_name}. "
-                   "Proceed with payment.")
-        else:
-            return (f"CONSENT_DENIED: Cannot proceed without guardian consent. "
-                   f"Place booking on hold. Tell user: Guardian can call (949) 555-SURF to complete consent and payment.")
-    
-    @function_tool
-    async def process_payment(
-        self,
-        context: RunContext_T,
-        card_info: str = None
-    ) -> str:
-        """Process the payment for the booking.
-        
-        If payment details are not collected yet, this will run TaskGroup to collect them first.
-        
-        Args:
-            context: RunContext with userdata
-            card_info: Optional card information (last 4 digits)
-            
-        Returns:
-            Payment result message
-        """
-        userdata = context.userdata
-        
-        if not userdata.total_amount:
-            return "BLOCKED: Calculate total first before processing payment."
-        
-        if userdata.is_minor and not userdata.guardian_consent:
-            await context.wait_for_playout()
-            consent_result = await ConsentTask(chat_ctx=self.chat_ctx)
-            
-            if not consent_result.approved:
-                await self.session.say(
-                    f"No problem. Your guardian can call us at (949) 555-SURF to complete the booking. "
-                    f"Your booking ID is {userdata.booking_id}."
-                )
-                return "BLOCKED: Guardian consent required but not obtained."
-            
-            userdata.guardian_consent = True
-            userdata.guardian_name = consent_result.guardian_name
-            userdata.guardian_contact = consent_result.guardian_contact
-        
-        if not hasattr(userdata, '_payment_details_collected') or not userdata._payment_details_collected:
-            await context.wait_for_playout()
-            payment_details_result = await PaymentDetailsTask()
-            userdata._payment_details_collected = True
-            card_info = f"ending in {payment_details_result.card_number[-4:]}"
-        
-        # Process payment
-        payment_result = process_mock_payment(
-            amount=userdata.total_amount,
-            customer_name=userdata.name,
-            card_info=card_info
+        quote_meta = self._ensure_quote(userdata, force_recompute=True)
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_STATE",
+            trace_id=trace_id,
+            message="tool.calculate_total.state_diff",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
         )
-        
-        if payment_result['success']:
-            userdata.payment_status = "paid"
-            
-            await self.session.say(
-                f"Perfect! Your payment of ${payment_result['amount']:.2f} has been processed. "
-                f"Transaction ID: {payment_result['transaction_id']}."
-            )
-            
-            await self.session.say("Let me send you a confirmation email.")
-            notification_result = await NotificationTask(chat_ctx=self.chat_ctx)
-            
-            if notification_result.delivered:
-                await self.session.say(
-                    f"All done! Confirmation sent to {userdata.email}. "
-                    f"See you on {userdata.preferred_date} at {userdata.preferred_time}! "
-                    f"Your booking ID is {userdata.booking_id}."
-                )
-            else:
-                await self.session.say(
-                    f"Your booking is confirmed! You should receive the confirmation email shortly. "
-                    f"Your booking ID is {userdata.booking_id}."
-                )
-            
-            return f"PAYMENT_SUCCESS: ${payment_result['amount']:.2f} charged. Transaction ID: {payment_result['transaction_id']}"
-        else:
-            userdata.payment_status = "failed"
-            await self.session.say(
-                f"I'm sorry, the payment was declined: {payment_result['error_message']}. "
-                f"Would you like to try a different card, or I can hold this booking for 15 minutes?"
-            )
-            
-            return (f"PAYMENT_FAILED: {payment_result['error_message']}\n"
-                   f"Tell user: Payment was declined. Ask if they want to try again or hold booking for 15 minutes.")
-    
+
+        return (
+            "COST_BREAKDOWN:\n"
+            f"Service: {quote_meta['service_label']}\n"
+            f"Billing Cycle: {quote_meta['billing_cycle']}\n"
+            f"Subtotal: ${userdata.quoted_subtotal:.2f}\n"
+            f"Tax: ${userdata.quoted_tax:.2f}\n"
+            f"TOTAL: ${userdata.quoted_total:.2f}\n"
+            f"Notes: {userdata.quote_notes}\n"
+            "Tell user: Read the total and ask if they want you to send this request now."
+        )
+
     @function_tool
-    async def send_confirmation(self, context: RunContext_T) -> str:
-        """Send booking confirmation via NotificationTask.
-        
-        Args:
-            context: RunContext with userdata
-            
-        Returns:
-            Confirmation send result
-        """
-        userdata = context.userdata
-        
-        if userdata.payment_status != "paid":
-            return "BLOCKED: Payment must be completed before sending confirmation."
-        
-        await context.wait_for_playout()
-        notification_result = await NotificationTask(chat_ctx=self.chat_ctx)
-        
-        if notification_result.delivered:
-            return (f"CONFIRMATION_SENT: To {userdata.email} "
-                   f"(Message ID: {notification_result.message_id}). "
-                   f"Tell user: Confirmation sent, should arrive within a few minutes.")
-        else:
-            return ("CONFIRMATION_FAILED: Issue sending confirmation. "
-                   "Tell user: Booking is confirmed, you'll receive the details via email shortly.")
-    
-    @function_tool
-    async def hold_booking(
+    async def send_structured_handoff(
         self,
         context: RunContext_T,
-        duration_minutes: int = 15
+        notes: str = "",
     ) -> str:
-        """Place booking on hold while customer resolves payment issues.
-        
-        Args:
-            context: RunContext with userdata
-            duration_minutes: How long to hold the booking
-            
-        Returns:
-            Hold confirmation
-        """
+        """Send structured session state to staff via SMTP handoff email."""
         userdata = context.userdata
-        
-        userdata.payment_status = "pending"
-        
-        return (f"BOOKING_ON_HOLD: Booking #{userdata.booking_id} held for {duration_minutes} minutes. "
-               f"Instructor: {userdata.instructor_name}. "
-               f"Tell user: Booking is reserved. Call (949) 555-SURF when ready to complete payment.")
-    
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.send_structured_handoff.call",
+            notes=notes,
+        )
+
+        self._ensure_quote(userdata, force_recompute=False)
+
+        if notes.strip():
+            extra_notes = notes.strip()
+            userdata.quote_notes = (
+                f"{userdata.quote_notes} | Additional caller note: {extra_notes}"
+                if userdata.quote_notes
+                else f"Additional caller note: {extra_notes}"
+            )
+
+        payload = build_handoff_payload(userdata)
+        userdata.handoff_status = "pending"
+
+        try:
+            result = send_handoff_email(payload)
+        except ValueError as exc:
+            userdata.handoff_status = "failed"
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_STATE",
+                trace_id=trace_id,
+                message="tool.send_structured_handoff.config_error",
+                error=str(exc),
+                changes=userdata_diff(before, userdata_snapshot(userdata)),
+            )
+            return (
+                f"HANDOFF_CONFIG_ERROR: {exc}. "
+                "Tell user: I have your request, but there is a system configuration issue. "
+                "A team member will follow up shortly."
+            )
+        except RuntimeError as exc:
+            userdata.handoff_status = "failed"
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_STATE",
+                trace_id=trace_id,
+                message="tool.send_structured_handoff.send_error",
+                error=str(exc),
+                changes=userdata_diff(before, userdata_snapshot(userdata)),
+            )
+            return (
+                f"HANDOFF_SEND_FAILED: {exc}. "
+                "Tell user: I could not send the handoff right now, but your request is saved and "
+                "our team will still follow up."
+            )
+
+        userdata.handoff_status = "sent"
+        userdata.payment_status = "pending_human_followup"
+        userdata.runtime_tool_facts["handoff_email"] = {
+            "message_id": result["message_id"],
+            "subject": result["subject"],
+        }
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_STATE",
+            trace_id=trace_id,
+            message="tool.send_structured_handoff.state_diff",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
+
+        await self.session.say(
+            "Done. I sent your full request details to our team for follow-up."
+        )
+
+        return (
+            f"HANDOFF_SENT: Message ID {result['message_id']}. "
+            f"Subject: {result['subject']}. "
+            "Tell user: Everything is submitted and staff will contact them shortly."
+        )
+
+    @function_tool
+    async def mark_handoff_pending(
+        self,
+        context: RunContext_T,
+        reason: str = "Customer is still deciding",
+    ) -> str:
+        """Mark session as pending when caller is not ready to finalize yet."""
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        userdata.handoff_status = "pending"
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.mark_handoff_pending",
+            reason=reason,
+        )
+        return (
+            f"HANDOFF_PENDING: {reason}. "
+            "Tell user: No problem, you can continue whenever ready."
+        )
+
     @function_tool
     async def return_to_frontdesk(self, context: RunContext_T) -> BaseAgent:
-        """Return customer to front desk for new inquiry or assistance.
-        
-        Use this after booking is complete or if customer wants to ask additional questions.
-        
-        Args:
-            context: RunContext with userdata
-            
-        Returns:
-            FrontDeskAgent instance
-        """
-        await self.session.say(
-            "Of course! Let me transfer you back to our front desk. Is there anything else I can help you with?"
+        """Return customer to front desk for additional help."""
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="billing.return_to_frontdesk",
+            from_agent="BillingAgent",
+            to_agent="FrontDeskAgent",
+            summary=userdata.summarize(),
         )
-        
-        # Get FrontDeskAgent from personas registry
+        await self.session.say(
+            "Sure, I'll transfer you back to the front desk for anything else you need."
+        )
+
         frontdesk = context.userdata.personas.get("frontdesk")
         if frontdesk:
-            # Create new instance with current chat context
             from agents.frontdesk_agent import FrontDeskAgent
-            return FrontDeskAgent(chat_ctx=self.chat_ctx)
-        else:
-            return "ERROR: FrontDesk agent not available in personas registry."
 
+            return FrontDeskAgent(chat_ctx=self.chat_ctx)
+        return "ERROR: FrontDesk agent not available in personas registry."
