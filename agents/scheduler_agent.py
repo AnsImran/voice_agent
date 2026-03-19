@@ -18,6 +18,7 @@ from utils import (
     ensure_session_trace_id,
     get_current_date,
     load_prompt,
+    resolve_agent_tts,
     trace_log,
     userdata_diff,
     userdata_snapshot,
@@ -38,14 +39,19 @@ class SchedulerAgent(BaseAgent):
         chat_ctx=None,
         provider: AvailabilityProvider | None = None,
     ):
-        super().__init__(
-            instructions=load_prompt(
+        agent_kwargs = {
+            "instructions": load_prompt(
                 "scheduler_prompt.yaml",
                 current_date=get_current_date(),
             ),
-            chat_ctx=chat_ctx,
-        )
+            "chat_ctx": chat_ctx,
+        }
+        tts_descriptor = resolve_agent_tts("scheduler")
+        if tts_descriptor:
+            agent_kwargs["tts"] = tts_descriptor
+        super().__init__(**agent_kwargs)
         self.provider = provider or MockAvailabilityProvider()
+        self._availability_inflight_signatures: set[str] = set()
 
     async def on_enter(self) -> None:
         """Auto-resume flow after handoff from intake without waiting for user speech."""
@@ -74,18 +80,21 @@ class SchedulerAgent(BaseAgent):
         if missing:
             await self.session.generate_reply(
                 instructions=(
-                    "You are now the SchedulerAgent. Continue immediately without waiting "
-                    "for additional user prompts. Ask only for the missing details: "
+                    "You are now the SchedulerAgent. Start with one short department intro "
+                    "exactly once, then continue immediately without waiting for additional "
+                    "user prompts. Ask only for the missing details: "
                     f"{', '.join(missing)}. "
-                    "If the caller previously selected Golden Leash Club Card, preserve that plan."
+                    "If the caller previously selected Golden Leash Club Card, preserve that plan. "
+                    "Do not repeat the intro in the same turn."
                 )
             )
             return
 
         await self.session.generate_reply(
             instructions=(
-                "You already have service and scheduling preferences. "
-                "Briefly confirm them and immediately call check_availability."
+                "Start with one short department intro exactly once, then briefly confirm "
+                "the known service and schedule preferences and immediately call check_availability. "
+                "Do not repeat the intro in the same turn."
             )
         )
 
@@ -123,7 +132,7 @@ class SchedulerAgent(BaseAgent):
         service_plan: str | None = None,
         date: str | None = None,
         time_preference: str | None = None,
-    ) -> str:
+        ) -> str:
         """Check service availability and return only a concise list of times."""
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
@@ -145,54 +154,99 @@ class SchedulerAgent(BaseAgent):
         resolved_date = date or userdata.requested_date or "tomorrow"
         resolved_time_pref = time_preference or userdata.requested_time or "anytime"
         service_label = get_service_display_label(service_family, selected_plan)
+        signature = (
+            f"{service_family}|{selected_plan or ''}|{resolved_date}|{resolved_time_pref}|"
+            f"{userdata.dog_size or ''}"
+        ).lower()
 
-        slots = self._get_slots(
-            context=context,
-            service_family=service_family,
-            date=resolved_date,
-            time_preference=resolved_time_pref,
-        )
+        cached_signature = userdata.runtime_tool_facts.get("last_availability_signature")
+        cached_response = userdata.runtime_tool_facts.get("last_availability_response")
+        if cached_signature == signature and isinstance(cached_response, str):
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_TOOLS",
+                trace_id=trace_id,
+                message="tool.check_availability.cached_hit",
+                signature=signature,
+            )
+            return cached_response
 
-        userdata.service_family = service_family
-        userdata.service_plan = selected_plan
-        userdata.selection_source = "scheduler.check_availability"
-        userdata.requested_services = [service_family]
-        userdata.requested_date = resolved_date
-        userdata.requested_time = resolved_time_pref
-        userdata._last_checked_service = service_family
-        userdata._last_checked_plan = selected_plan
-        userdata._last_checked_date = resolved_date
-        userdata._last_checked_time = resolved_time_pref
-        userdata._last_slots = slots
-        userdata.runtime_tool_facts["availability"] = {
-            "service_family": service_family,
-            "service_plan": selected_plan,
-            "service_label": service_label,
-            "date": resolved_date,
-            "time_preference": resolved_time_pref,
-            "times": [slot["time"] for slot in slots],
-        }
-
-        trace_log(
-            logger=logger,
-            flag_name="HH_TRACE_STATE",
-            trace_id=trace_id,
-            message="tool.check_availability.state_diff",
-            changes=userdata_diff(before, userdata_snapshot(userdata)),
-        )
-
-        if not slots:
+        if signature in self._availability_inflight_signatures:
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_TOOLS",
+                trace_id=trace_id,
+                message="tool.check_availability.duplicate_inflight",
+                signature=signature,
+                service=service,
+                service_plan=service_plan,
+            )
             return (
-                f"NO_AVAILABILITY: No {service_label} slots were found for {resolved_date}. "
-                "Use suggest_alternative_times to offer nearby options."
+                "CHECK_IN_PROGRESS: Availability is already being checked for this same request. "
+                "Do not call check_availability again; wait for the current result."
             )
 
-        available_times = ", ".join(slot["time"] for slot in slots)
-        return (
-            f"AVAILABLE_TIMES for {service_label} on {resolved_date}: {available_times}\n\n"
-            "IMPORTANT: Tell user only the available times and ask which one they prefer, "
-            "or whether they want details for a specific time."
-        )
+        self._availability_inflight_signatures.add(signature)
+        try:
+            await self.session.say(
+                "Sure. I'm checking availability now. Kindly wait a moment."
+            )
+
+            slots = self._get_slots(
+                context=context,
+                service_family=service_family,
+                date=resolved_date,
+                time_preference=resolved_time_pref,
+            )
+
+            userdata.service_family = service_family
+            userdata.service_plan = selected_plan
+            userdata.selection_source = "scheduler.check_availability"
+            userdata.requested_services = [service_family]
+            userdata.requested_date = resolved_date
+            userdata.requested_time = resolved_time_pref
+            userdata._last_checked_service = service_family
+            userdata._last_checked_plan = selected_plan
+            userdata._last_checked_date = resolved_date
+            userdata._last_checked_time = resolved_time_pref
+            userdata._last_slots = slots
+            userdata.runtime_tool_facts["availability"] = {
+                "service_family": service_family,
+                "service_plan": selected_plan,
+                "service_label": service_label,
+                "date": resolved_date,
+                "time_preference": resolved_time_pref,
+                "times": [slot["time"] for slot in slots],
+            }
+
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_STATE",
+                trace_id=trace_id,
+                message="tool.check_availability.state_diff",
+                changes=userdata_diff(before, userdata_snapshot(userdata)),
+            )
+
+            if not slots:
+                response = (
+                    f"NO_AVAILABILITY: No {service_label} slots were found for {resolved_date}. "
+                    "Use suggest_alternative_times to offer nearby options."
+                )
+                userdata.runtime_tool_facts["last_availability_signature"] = signature
+                userdata.runtime_tool_facts["last_availability_response"] = response
+                return response
+
+            available_times = ", ".join(slot["time"] for slot in slots)
+            response = (
+                f"AVAILABLE_TIMES for {service_label} on {resolved_date}: {available_times}\n\n"
+                "IMPORTANT: Tell user only the available times and ask which one they prefer, "
+                "or whether they want details for a specific time."
+            )
+            userdata.runtime_tool_facts["last_availability_signature"] = signature
+            userdata.runtime_tool_facts["last_availability_response"] = response
+            return response
+        finally:
+            self._availability_inflight_signatures.discard(signature)
 
     @function_tool
     async def get_slot_details(
@@ -308,6 +362,10 @@ class SchedulerAgent(BaseAgent):
             time=time,
             service=service,
             service_plan=service_plan,
+        )
+
+        await self.session.say(
+            "Great. I'm confirming that booking now. Kindly wait a moment."
         )
 
         selection_value = service_plan or service or userdata.service_plan or userdata.service_family
@@ -493,8 +551,9 @@ class SchedulerAgent(BaseAgent):
         )
 
         await self.session.say(
-            "Great, I have your service request and quote ready. "
-            "I'll transfer you to billing to confirm and finalize."
+            "Great, your service request and quote are ready. "
+            "I'm now transferring your call to our Billing Department to confirm and finalize. "
+            "Kindly wait a moment while I connect you."
         )
 
         # Gear handoff is intentionally bypassed in this flow.

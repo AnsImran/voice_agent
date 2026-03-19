@@ -1,7 +1,7 @@
 """Phone collection task."""
 from dataclasses import dataclass
 from livekit.agents import AgentTask, RunContext
-from livekit.agents.llm import function_tool, ToolError
+from livekit.agents.llm import function_tool
 from livekit.agents.voice import SpeechHandle
 
 from utils import load_reading_guidelines
@@ -42,7 +42,8 @@ Ask for it naturally. When they provide it:
 4. When they confirm, call confirm_phone()
 
 CRITICAL: Never call confirm_phone() in the same turn as record_phone().
-Wait for explicit user confirmation."""
+Wait for explicit user confirmation.
+After calling confirm_phone(), do not add any extra closing text."""
         )
         self._phone = ""
         self._record_handle: SpeechHandle | None = None
@@ -79,10 +80,10 @@ Wait for explicit user confirmation."""
         await ctx.wait_for_playout()
         
         if ctx.speech_handle == self._record_handle:
-            raise ToolError("User must confirm explicitly")
+            return "Do not confirm yet. Ask the caller to explicitly confirm the phone number first."
         
         if not self._phone:
-            raise ToolError("No phone recorded")
+            return "No phone number is recorded yet. Ask for the phone number first."
         
         self._confirmed = True
         self.complete(PhoneResult(phone=self._phone))

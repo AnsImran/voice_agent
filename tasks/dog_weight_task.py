@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 
 from livekit.agents import AgentTask, RunContext
-from livekit.agents.llm.tool_context import ToolError, function_tool
+from livekit.agents.llm.tool_context import function_tool
 from livekit.agents.voice import SpeechHandle
 
 
@@ -38,7 +38,8 @@ Ask for weight naturally. When they provide it:
 4. When confirmed, call confirm_dog_weight()
 
 CRITICAL: Never call confirm_dog_weight() in the same turn as record_dog_weight().
-Wait for explicit user confirmation."""
+Wait for explicit user confirmation.
+After calling confirm_dog_weight(), do not add any closing message. End the task immediately."""
         )
         self._weight_lbs: float | None = None
         self._dog_size: str | None = None
@@ -74,15 +75,15 @@ Wait for explicit user confirmation."""
         )
 
     @function_tool()
-    async def confirm_dog_weight(self, ctx: RunContext) -> str:
+    async def confirm_dog_weight(self, ctx: RunContext) -> str | None:
         """Confirm weight after explicit user confirmation."""
         await ctx.wait_for_playout()
 
         if ctx.speech_handle == self._record_handle:
-            raise ToolError("User must confirm explicitly")
+            return "Do not confirm yet. Ask the caller to explicitly confirm the weight first."
 
         if self._weight_lbs is None or self._dog_size is None:
-            raise ToolError("No dog weight recorded")
+            return "No dog weight is recorded yet. Ask for the dog's weight in pounds first."
 
         self.complete(
             DogWeightResult(
@@ -90,4 +91,3 @@ Wait for explicit user confirmation."""
                 dog_size=self._dog_size,
             )
         )
-        return "Dog weight confirmed."

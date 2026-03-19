@@ -8,6 +8,14 @@ import zoneinfo
 
 import yaml
 
+DEFAULT_AGENT_TTS = {
+    # Alternating pattern for active handoff chain:
+    # FrontDesk (female) -> Intake (male via SESSION_TTS) -> Scheduler (female) -> Billing (male)
+    "frontdesk": "deepgram/aura-2:andromeda",
+    "scheduler": "deepgram/aura-2:amalthea",
+    "billing": "deepgram/aura-2:zeus",
+}
+
 
 def load_reading_guidelines() -> str:
     """Load reading guidelines from YAML file.
@@ -71,6 +79,26 @@ def parse_env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def resolve_agent_tts(agent_name: str) -> str | None:
+    """Resolve a per-agent TTS descriptor from environment variables.
+
+    Expected value format:
+      provider/model:voice_id
+    Example:
+      cartesia/sonic-3:f786b574-daa5-4673-aa0c-cbe3e8534c02
+    """
+    normalized = agent_name.strip().upper().replace("-", "_")
+    candidates = [
+        f"HH_TTS_{normalized}",
+        f"{normalized}_TTS",
+    ]
+    for key in candidates:
+        value = os.getenv(key)
+        if value and value.strip():
+            return value.strip()
+    return DEFAULT_AGENT_TTS.get(agent_name.strip().lower())
 
 
 def ensure_session_trace_id(userdata) -> str:

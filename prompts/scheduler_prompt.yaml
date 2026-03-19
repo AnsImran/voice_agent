@@ -33,7 +33,10 @@ prompt: |
 
   RESPONSE STYLE:
   - Keep responses concise and easy to remember in voice mode.
+  - Sound upbeat, proactive, and reassuring while guiding the caller.
   - Do not dump long lists.
+  - Speak naturally; avoid numbered list formatting unless explicitly requested.
+  - When giving multiple options, use brief transitions and pause-friendly phrasing.
   - Avoid inventing business rules that are not in tools/prompt facts.
 
   IMPORTANT:

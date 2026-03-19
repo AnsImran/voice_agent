@@ -8,6 +8,7 @@ from tools.availability_provider import resolve_service_selection
 from utils import (
     ensure_session_trace_id,
     load_prompt,
+    resolve_agent_tts,
     trace_log,
     userdata_diff,
     userdata_snapshot,
@@ -20,9 +21,15 @@ class FrontDeskAgent(BaseAgent):
     """Agent responsible for greeting customers and routing them appropriately."""
     
     def __init__(self, chat_ctx=None):
+        agent_kwargs = {
+            "instructions": load_prompt('frontdesk_prompt.yaml'),
+            "chat_ctx": chat_ctx,
+        }
+        tts_descriptor = resolve_agent_tts("frontdesk")
+        if tts_descriptor:
+            agent_kwargs["tts"] = tts_descriptor
         super().__init__(
-            instructions=load_prompt('frontdesk_prompt.yaml'),
-            chat_ctx=chat_ctx,
+            **agent_kwargs,
         )
     
     async def on_enter(self) -> None:
@@ -82,8 +89,8 @@ class FrontDeskAgent(BaseAgent):
         )
 
         await self.session.say(
-            "Great, I'll get this started. First I'll collect a few quick details "
-            "about you and your dog, then we'll check availability."
+            "Great. I'm now transferring your call to our Intake Department to collect "
+            "your details. Kindly wait a moment while I connect you."
         )
 
         from agents.intake_agent import IntakeAgent

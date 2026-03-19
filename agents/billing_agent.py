@@ -14,6 +14,7 @@ from tools.handoff_email_tools import build_handoff_payload, send_handoff_email
 from utils import (
     ensure_session_trace_id,
     load_prompt,
+    resolve_agent_tts,
     trace_log,
     userdata_diff,
     userdata_snapshot,
@@ -26,10 +27,14 @@ class BillingAgent(BaseAgent):
     """Agent responsible for final quote confirmation and human handoff."""
 
     def __init__(self, chat_ctx=None):
-        super().__init__(
-            instructions=load_prompt("billing_prompt.yaml"),
-            chat_ctx=chat_ctx,
-        )
+        agent_kwargs = {
+            "instructions": load_prompt("billing_prompt.yaml"),
+            "chat_ctx": chat_ctx,
+        }
+        tts_descriptor = resolve_agent_tts("billing")
+        if tts_descriptor:
+            agent_kwargs["tts"] = tts_descriptor
+        super().__init__(**agent_kwargs)
 
     def _quote_basis(self, userdata) -> dict:
         return {
@@ -97,6 +102,7 @@ class BillingAgent(BaseAgent):
         )
 
         await self.session.say(
+            f"Hi, this is the Billing Department at Happy Hound. "
             f"You're all set for {quote_meta['service_label']}. "
             f"Your total is ${userdata.quoted_total:.2f} ({quote_meta['billing_cycle']}). "
             "If that looks good, I can send your full request to our team now."
@@ -152,6 +158,11 @@ class BillingAgent(BaseAgent):
             trace_id=trace_id,
             message="tool.send_structured_handoff.call",
             notes=notes,
+        )
+
+        await self.session.say(
+            "Understood. I'm sending your request details to our team now. "
+            "Kindly wait a moment."
         )
 
         self._ensure_quote(userdata, force_recompute=False)
@@ -215,10 +226,6 @@ class BillingAgent(BaseAgent):
             changes=userdata_diff(before, userdata_snapshot(userdata)),
         )
 
-        await self.session.say(
-            "Done. I sent your full request details to our team for follow-up."
-        )
-
         return (
             f"HANDOFF_SENT: Message ID {result['message_id']}. "
             f"Subject: {result['subject']}. "
@@ -262,7 +269,8 @@ class BillingAgent(BaseAgent):
             summary=userdata.summarize(),
         )
         await self.session.say(
-            "Sure, I'll transfer you back to the front desk for anything else you need."
+            "Sure. I'm now transferring your call back to our Front Desk Department. "
+            "Kindly wait a moment while I connect you."
         )
 
         frontdesk = context.userdata.personas.get("frontdesk")

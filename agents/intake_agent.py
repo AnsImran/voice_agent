@@ -28,13 +28,25 @@ class IntakeAgent(BaseAgent):
     def __init__(self, chat_ctx=None):
         # Note: We need LLM for tasks to use session.generate_reply()
         # Tasks will use the session's LLM, not the agent's LLM
-        super().__init__(
-            instructions="You collect customer profile information using sequential tasks. The tasks handle all communication.",
-            chat_ctx=chat_ctx,
-        )
+        agent_kwargs = {
+            "instructions": (
+                "You collect customer profile information using sequential tasks. "
+                "The tasks handle all communication. Keep prompts natural for spoken delivery, "
+                "ask one thing at a time, and avoid list formatting."
+            ),
+            "chat_ctx": chat_ctx,
+        }
+        # Keep Intake on session-level TTS because TaskGroup task utterances also
+        # synthesize with session defaults; this avoids mid-intake voice flips.
+        super().__init__(**agent_kwargs)
     
     async def on_enter(self) -> None:
         """Called when agent starts - run profile collection tasks sequentially."""
+        await self.session.say(
+            "Hi, this is the Intake Department at Happy Hound. "
+            "I'll collect a few quick details to get your booking started."
+        )
+
         # Create TaskGroup for sequential profile collection
         task_group = TaskGroup()
         
@@ -79,8 +91,9 @@ class IntakeAgent(BaseAgent):
         }
 
         await self.session.say(
-            f"Perfect, {userdata.name}! I have your contact details and your dog's size profile. "
-            "Now I'll check service availability for you."
+            "Your details have been recorded. "
+            "I'm now transferring your call to our Scheduling Department to check availability. "
+            "Kindly wait a moment while I connect you."
         )
         
         # Transfer to scheduler agent with chat context

@@ -17,7 +17,15 @@ import logging
 import os
 from dotenv import load_dotenv
 
-from livekit.agents import JobContext, RoomInputOptions, WorkerOptions, cli
+from livekit.agents import (
+    AudioConfig,
+    BackgroundAudioPlayer,
+    BuiltinAudioClip,
+    JobContext,
+    RoomInputOptions,
+    WorkerOptions,
+    cli,
+)
 from livekit.agents.voice import AgentSession
 from livekit.plugins import silero, noise_cancellation, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -30,12 +38,13 @@ from agents.intake_agent import IntakeAgent
 from agents.scheduler_agent import SchedulerAgent
 from agents.billing_agent import BillingAgent
 from agents.observer_agent import start_observer
-from utils import ensure_session_trace_id, trace_log
+from utils import ensure_session_trace_id, parse_env_bool, trace_log
 
 # Load environment
 load_dotenv(dotenv_path='.env')
 
 logger = logging.getLogger("doheny-surf-desk")
+DEFAULT_SESSION_TTS = "deepgram/aura-2:arcas"
 
 
 async def entrypoint(ctx: JobContext):
@@ -87,7 +96,7 @@ async def entrypoint(ctx: JobContext):
         vad=silero.VAD.load(),
         stt="deepgram/nova-2",
         llm="openai/gpt-4o",
-        tts="cartesia/sonic-3:a167e0f3-df7e-4d52-a9c3-f949145efdab",
+        tts=os.getenv("SESSION_TTS", DEFAULT_SESSION_TTS),
         turn_detection=MultilingualModel(),
     )
 
@@ -111,6 +120,32 @@ async def entrypoint(ctx: JobContext):
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
+
+    if parse_env_bool("HH_ENABLE_BACKGROUND_AUDIO", default=True):
+        ambient_volume = 0.15
+        try:
+            ambient_volume = float(os.getenv("HH_BACKGROUND_AUDIO_VOLUME", "0.15"))
+        except ValueError:
+            ambient_volume = 0.15
+
+        try:
+            background_audio = BackgroundAudioPlayer(
+                ambient_sound=AudioConfig(
+                    BuiltinAudioClip.OFFICE_AMBIENCE,
+                    volume=max(0.0, min(ambient_volume, 1.0)),
+                )
+            )
+            await background_audio.start(room=ctx.room, agent_session=session)
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_HANDOFFS",
+                trace_id=trace_id,
+                message="entrypoint.background_audio_started",
+                clip="OFFICE_AMBIENCE",
+                volume=ambient_volume,
+            )
+        except Exception as exc:
+            logger.warning("Background audio could not be started: %s", exc)
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
