@@ -14,6 +14,7 @@ from tools.availability_provider import (
     get_service_display_label,
     resolve_service_selection,
 )
+from tools.handoff_email_tools import build_handoff_payload, send_handoff_email
 from utils import (
     ensure_session_trace_id,
     get_current_date,
@@ -123,6 +124,53 @@ class SchedulerAgent(BaseAgent):
             dog_size=context.userdata.dog_size,
         )
         return [slot.__dict__.copy() for slot in slots]
+
+    def _quote_basis(self, userdata) -> dict:
+        return {
+            "service_family": userdata.service_family
+            or (userdata.requested_services[0] if userdata.requested_services else "daycare"),
+            "service_plan": userdata.service_plan,
+            "dog_size": userdata.dog_size,
+        }
+
+    def _ensure_quote(self, userdata, force_recompute: bool = False) -> dict:
+        basis = self._quote_basis(userdata)
+        stored_basis = userdata.runtime_tool_facts.get("quote_basis")
+
+        should_recompute = force_recompute or (
+            userdata.quoted_subtotal is None
+            or userdata.quoted_tax is None
+            or userdata.quoted_total is None
+            or stored_basis != basis
+        )
+
+        if should_recompute:
+            quote = compute_selection_quote(
+                service_family=basis["service_family"],
+                service_plan=basis["service_plan"],
+                dog_size=basis["dog_size"],
+            )
+            userdata.quoted_subtotal = float(quote["subtotal"])
+            userdata.quoted_tax = float(quote["tax"])
+            userdata.quoted_total = float(quote["total"])
+            userdata.quote_notes = str(quote["quote_notes"])
+            userdata.total_amount = float(quote["total"])
+            userdata.runtime_tool_facts["quote_basis"] = basis
+            userdata.runtime_tool_facts["active_quote"] = quote
+
+        if not userdata.handoff_status:
+            userdata.handoff_status = "pending"
+
+        service_label = get_service_display_label(
+            basis["service_family"],
+            basis["service_plan"],
+        )
+        return {
+            "service_label": service_label,
+            "billing_cycle": userdata.runtime_tool_facts.get("active_quote", {}).get(
+                "billing_cycle", "per_visit"
+            ),
+        }
 
     @function_tool
     async def check_availability(
@@ -441,6 +489,8 @@ class SchedulerAgent(BaseAgent):
             "duration": selected["duration"],
             "quote": quote,
         }
+        userdata.runtime_tool_facts["quote_basis"] = self._quote_basis(userdata)
+        userdata.runtime_tool_facts["active_quote"] = quote
 
         trace_log(
             logger=logger,
@@ -525,37 +575,196 @@ class SchedulerAgent(BaseAgent):
         )
 
     @function_tool
-    async def transfer_to_billing(self, context: RunContext_T) -> BaseAgent:
-        """Transfer booking to BillingAgent for final confirmation + handoff."""
-        from agents.billing_agent import BillingAgent
-
+    async def calculate_total(self, context: RunContext_T) -> str:
+        """Show quote breakdown for the current request."""
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
-        if not userdata.is_booking_complete():
-            return "BLOCKED: Confirm service, date, and time before moving to billing."
-        if not userdata.booking_id:
-            return "BLOCKED: Confirm a specific booking slot before moving to billing."
-        if userdata.quoted_total is None:
-            return "BLOCKED: Quoted total is missing. Confirm slot details first."
+        before = userdata_snapshot(userdata)
 
-        userdata.handoff_pending_action = "billing_on_enter"
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.calculate_total.call",
+        )
+        quote_meta = self._ensure_quote(userdata, force_recompute=True)
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_STATE",
+            trace_id=trace_id,
+            message="tool.calculate_total.state_diff",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
+
+        return (
+            "COST_BREAKDOWN:\n"
+            f"Service: {quote_meta['service_label']}\n"
+            f"Billing Cycle: {quote_meta['billing_cycle']}\n"
+            f"Subtotal: ${userdata.quoted_subtotal:.2f}\n"
+            f"Tax: ${userdata.quoted_tax:.2f}\n"
+            f"TOTAL: ${userdata.quoted_total:.2f}\n"
+            f"Notes: {userdata.quote_notes}\n"
+            "Tell user: Read the total and ask if they want you to send this request now."
+        )
+
+    @function_tool
+    async def send_structured_handoff(
+        self,
+        context: RunContext_T,
+        notes: str = "",
+    ) -> str:
+        """Send structured session state to staff via SMTP handoff email."""
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        before = userdata_snapshot(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.send_structured_handoff.call",
+            notes=notes,
+        )
+
+        await self.session.say(
+            "Understood. I'm sending your request details to our team now. "
+            "Kindly wait a moment."
+        )
+
+        self._ensure_quote(userdata, force_recompute=False)
+
+        if notes.strip():
+            extra_notes = notes.strip()
+            userdata.quote_notes = (
+                f"{userdata.quote_notes} | Additional caller note: {extra_notes}"
+                if userdata.quote_notes
+                else f"Additional caller note: {extra_notes}"
+            )
+
+        payload = build_handoff_payload(userdata)
+        userdata.handoff_status = "pending"
+
+        try:
+            result = send_handoff_email(payload)
+        except ValueError as exc:
+            userdata.handoff_status = "failed"
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_STATE",
+                trace_id=trace_id,
+                message="tool.send_structured_handoff.config_error",
+                error=str(exc),
+                changes=userdata_diff(before, userdata_snapshot(userdata)),
+            )
+            return (
+                f"HANDOFF_CONFIG_ERROR: {exc}. "
+                "Tell user: I have your request, but there is a system configuration issue. "
+                "A team member will follow up shortly."
+            )
+        except RuntimeError as exc:
+            userdata.handoff_status = "failed"
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_STATE",
+                trace_id=trace_id,
+                message="tool.send_structured_handoff.send_error",
+                error=str(exc),
+                changes=userdata_diff(before, userdata_snapshot(userdata)),
+            )
+            return (
+                f"HANDOFF_SEND_FAILED: {exc}. "
+                "Tell user: I could not send the handoff right now, but your request is saved and "
+                "our team will still follow up."
+            )
+
+        userdata.handoff_status = "sent"
+        userdata.payment_status = "pending_human_followup"
+        userdata.runtime_tool_facts["handoff_email"] = {
+            "message_id": result["message_id"],
+            "subject": result["subject"],
+        }
+
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_STATE",
+            trace_id=trace_id,
+            message="tool.send_structured_handoff.state_diff",
+            changes=userdata_diff(before, userdata_snapshot(userdata)),
+        )
+
+        return (
+            f"HANDOFF_SENT: Message ID {result['message_id']}. "
+            f"Subject: {result['subject']}. "
+            "Tell user: Everything is submitted and staff will contact them shortly."
+        )
+
+    @function_tool
+    async def mark_handoff_pending(
+        self,
+        context: RunContext_T,
+        reason: str = "Customer is still deciding",
+    ) -> str:
+        """Mark session as pending when caller is not ready to finalize yet."""
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        userdata.handoff_status = "pending"
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_TOOLS",
+            trace_id=trace_id,
+            message="tool.mark_handoff_pending",
+            reason=reason,
+        )
+        return (
+            f"HANDOFF_PENDING: {reason}. "
+            "Tell user: No problem, you can continue whenever ready."
+        )
+
+    @function_tool
+    async def return_to_frontdesk(self, context: RunContext_T) -> BaseAgent:
+        """Return customer to front desk for additional help."""
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",
             trace_id=trace_id,
-            message="scheduler.transfer_to_billing",
+            message="scheduler.return_to_frontdesk",
             from_agent="SchedulerAgent",
-            to_agent="BillingAgent",
+            to_agent="FrontDeskAgent",
             summary=userdata.summarize(),
-            runtime_tool_facts=userdata.runtime_tool_facts,
         )
-
         await self.session.say(
-            "Great, your service request and quote are ready. "
-            "I'm now transferring your call to our Billing Department to confirm and finalize. "
+            "Sure. I'm now transferring your call back to our Front Desk Department. "
             "Kindly wait a moment while I connect you."
         )
 
-        # Gear handoff is intentionally bypassed in this flow.
-        # To re-enable later, route Scheduler -> Gear -> Billing.
-        return BillingAgent(chat_ctx=self.chat_ctx)
+        from agents.frontdesk_agent import FrontDeskAgent
+
+        return FrontDeskAgent(chat_ctx=self.chat_ctx)
+
+    @function_tool
+    async def transfer_to_billing(self, context: RunContext_T) -> str:
+        """Legacy alias kept for compatibility; billing finalization now runs in Scheduler."""
+
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        if not userdata.is_booking_complete():
+            return "BLOCKED: Confirm service, date, and time before finalizing."
+        if not userdata.booking_id:
+            return "BLOCKED: Confirm a specific booking slot before finalizing."
+
+        quote_meta = self._ensure_quote(userdata, force_recompute=True)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="scheduler.transfer_to_billing_legacy_alias",
+            from_agent="SchedulerAgent",
+            summary=userdata.summarize(),
+        )
+        return (
+            "BILLING_MERGED: Final confirmation and handoff now happen in Scheduler. "
+            f"Current total is ${userdata.quoted_total:.2f} ({quote_meta['billing_cycle']}). "
+            "Tell user: confirm the total, and if approved call send_structured_handoff."
+        )

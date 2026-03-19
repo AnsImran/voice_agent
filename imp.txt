@@ -9,3 +9,7 @@ uv run python agent.py dev
 4. Allow microphone, speaker & webcam
 
 5. press connect on top-right corner
+
+--------------------------------------------------------
+
+uv run python agent.py download-files

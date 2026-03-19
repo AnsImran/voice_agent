@@ -7,7 +7,7 @@ difficulty: advanced
 description: Voice receptionist workflow for Happy Hound with parallel hallucination observer and structured handoff
 requires: livekit-agents>=1.3.0
 demonstrates:
-  - FrontDesk -> Intake -> Scheduler -> Billing handoff pattern
+  - FrontDesk -> Intake -> Scheduler handoff pattern
   - Background observer for hallucination/fact-check monitoring
   - Task-based profile collection with typed results
   - Structured session-state handoff for human follow-up
@@ -36,7 +36,6 @@ from agents.base_agent import SurfBookingData
 from agents.frontdesk_agent import FrontDeskAgent
 from agents.intake_agent import IntakeAgent
 from agents.scheduler_agent import SchedulerAgent
-from agents.billing_agent import BillingAgent
 from agents.observer_agent import start_observer
 from utils import ensure_session_trace_id, parse_env_bool, trace_log
 
@@ -53,8 +52,7 @@ async def entrypoint(ctx: JobContext):
     Sets up multi-agent session with:
     - FrontDeskAgent: Greets and routes callers into booking flow
     - IntakeAgent: Collects customer profile via sequential TaskGroup
-    - SchedulerAgent: Checks service availability and confirms slots
-    - BillingAgent: Confirms total and sends SMTP handoff payload
+    - SchedulerAgent: Checks service availability, confirms slots, and sends SMTP handoff payload
     - ObserverAgent: Monitors for hallucinated business facts (parallel)
     """
     logger.info("Starting Happy Hound booking agent in room %s", ctx.room.name)
@@ -72,7 +70,7 @@ async def entrypoint(ctx: JobContext):
     intake_agent = IntakeAgent()
     scheduler_agent = SchedulerAgent()
     # gear_agent = GearAgent()  # Gear flow intentionally bypassed in active path.
-    billing_agent = BillingAgent()
+    # billing_agent = BillingAgent()  # Billing flow merged into Scheduler for active path.
     
     # Register all agents in userdata for handoffs
     userdata.personas = {
@@ -80,7 +78,7 @@ async def entrypoint(ctx: JobContext):
         "intake": intake_agent,
         "scheduler": scheduler_agent,
         # "gear": gear_agent,  # Keep disabled but available for future re-enable.
-        "billing": billing_agent,
+        # "billing": billing_agent,  # Kept disabled in active path.
     }
     trace_log(
         logger=logger,

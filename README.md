@@ -1,77 +1,81 @@
 # Happy Hound Multi-Agent Voice Receptionist
 
-This project is a LiveKit-based voice workflow for Happy Hound.
+LiveKit-based voice receptionist for Happy Hound, using a handoff chain plus a parallel observer.
 
-It uses a multi-agent architecture with a parallel observer:
-- Main flow: `FrontDesk -> Intake -> Scheduler -> Billing`
-- Parallel flow: `ObserverAgent` (hallucination/fact-check monitoring)
+- Main path: `FrontDesk -> Intake -> Scheduler`
+- Parallel path: `ObserverAgent` for hallucination/fact-check monitoring
 
-## What This Repo Does
+## What It Does
 
-- Greets callers and handles service Q&A.
-- Starts booking and collects profile data (name, phone, dog weight).
-- Checks mock availability and confirms slots for daycare/boarding/grooming/training.
+- Handles front-desk Q&A for daycare, boarding, grooming, and training.
+- Starts booking flow and collects intake profile (name, phone, dog weight).
 - Preserves package intent (for example, Golden Leash Club Card) across handoffs.
-- Confirms final quote and sends a structured handoff email to staff via SMTP.
-- Audits assistant responses against business facts and runtime tool facts.
+- Checks availability (mock provider in this phase), confirms slot, and builds quote.
+- Confirms total and sends structured human handoff email via SMTP.
+- Audits assistant claims against business facts plus runtime tool facts.
 
-## Active Runtime Architecture
+## Runtime Architecture
 
 ```mermaid
 graph TD
     User([Caller]) <--> FD[FrontDeskAgent]
     FD --> IN[IntakeAgent]
     IN --> SC[SchedulerAgent]
-    SC --> BL[BillingAgent]
+    SC --> END([Finalize + Handoff])
 
     OB[[ObserverAgent]] -. parallel audit .-> FD
     OB -. parallel audit .-> IN
     OB -. parallel audit .-> SC
-    OB -. parallel audit .-> BL
+    OB -. parallel audit .-> END
 ```
 
 Notes:
-- `GearAgent` code is preserved but disabled in the active runtime path.
-- Observer runs asynchronously and does not become the active speaker agent.
+- `GearAgent` code is preserved but disabled in the active path.
+- Observer never becomes the active speaking agent.
 
 ## Agent Responsibilities
 
 1. `FrontDeskAgent`
-- Greets and consults.
-- Starts booking via `start_booking(service_request=...)`.
-- Normalizes early service intent into canonical session state.
+- Greets callers and answers business-info questions.
+- Calls `start_booking(service_request=...)` once booking/availability intent is clear.
+- Sets canonical selection state early (`service_family`, `service_plan`).
 
 2. `IntakeAgent`
-- Runs a sequential `TaskGroup`:
-  - `NameTask`
-  - `PhoneTask`
-  - `DogWeightTask`
-- Derives dog size tier from weight.
-- Hands off to scheduler.
+- Runs `TaskGroup` in this order: `NameTask -> PhoneTask -> DogWeightTask`.
+- Derives dog size from weight:
+  - `<=19: small`, `20-60: medium`, `61-100: large`, `>=101: x-large`
+- Transfers to scheduler after profile completion.
 
 3. `SchedulerAgent`
-- Continues proactively on enter (no silent wait after handoff).
-- Collects/uses service, date, and time preference.
-- Uses provider boundary (`AvailabilityProvider`) with deterministic `MockAvailabilityProvider`.
-- Confirms slot and persists normalized booking state.
-- Transfers directly to billing.
+- Auto-resumes on enter (no silent wait after Intake handoff).
+- Checks availability, shares slot options, provides slot details, books slot.
+- Uses provider seam (`AvailabilityProvider`), currently `MockAvailabilityProvider`.
+- Has duplicate in-flight availability guard to prevent repeated tool calls on same request.
+- Recomputes totals when needed, asks for explicit approval, and sends structured handoff email via `send_structured_handoff`.
 
-4. `BillingAgent`
-- Computes/recomputes totals from canonical selection fields.
-- Confirms total with caller.
-- Sends structured session-state handoff by SMTP with `send_structured_handoff`.
+4. `BillingAgent` (disabled in active path)
+- Code is preserved for fallback/re-enable.
 
 5. `ObserverAgent` (parallel)
 - Captures both `user` and `assistant` turns.
-- Evaluates every 6 eligible segments (3 user+assistant pairs).
-- Audits claims against:
-  - static facts: `business_info_happy_hound.txt`
-  - runtime authoritative facts from tools (`runtime_tool_facts`)
-- Injects guardrail system hints only when contradiction is detected.
+- Evaluates every 6 eligible turns (3 user+assistant pairs).
+- Checks claims against:
+  - `business_info_happy_hound.txt`
+  - per-session `runtime_tool_facts`
+- Injects guardrail hint only when contradiction is detected.
+
+## Call Experience Contract
+
+- Transferring agent gives a single transfer message before handoff.
+- Receiving agent starts with one short department intro, then continues workflow.
+- Long-running tool actions announce wait state first:
+  - Scheduler before availability/booking checks.
+  - Scheduler before SMTP handoff send.
+- Spoken output is intentionally plain, natural, and non-list-heavy for TTS.
 
 ## Canonical Session State
 
-Core fields used across handoffs:
+Primary shared fields:
 - `name`, `phone`
 - `dog_weight_lbs`, `dog_size`
 - `requested_services`
@@ -80,28 +84,41 @@ Core fields used across handoffs:
 - `quoted_subtotal`, `quoted_tax`, `quoted_total`, `quote_notes`
 - `handoff_status`, `handoff_pending_action`
 - `runtime_tool_facts`
-- `session_trace_id` (for log correlation)
+- `session_trace_id`
 
-## Service and Plan Normalization
+## Service/Plan Normalization
 
-The scheduler/provider layer separates:
+Selection is split into:
 - `service_family` (example: `daycare`)
 - `service_plan` (example: `golden_leash_club`)
 
-Aliases map common variants (including ASR misspellings) to canonical values, so package intent is preserved across agents.
+Aliases include common ASR variants so package intent is not collapsed to generic service.
+
+## Voice Configuration
+
+Current default pattern is alternating by handoff chain:
+- FrontDesk: female (`andromeda`)
+- Intake: male (`SESSION_TTS`, default `arcas`)
+- Scheduler: female (`amalthea`)
+
+Per-agent override env keys supported:
+- `HH_TTS_FRONTDESK` or `FRONTDESK_TTS`
+- `HH_TTS_SCHEDULER` or `SCHEDULER_TTS`
+
+Intake intentionally uses session-level voice to keep TaskGroup utterances consistent and avoid mid-intake voice flips.
 
 ## SMTP Handoff Behavior
 
-Billing sends structured payloads with:
+Scheduler sends structured payload containing:
 - customer profile
 - dog profile
 - service/plan/date/time
 - quote breakdown
 - workflow metadata
 
-Transport behavior:
-- Port `465`: implicit SSL (`SMTP_SSL`)
-- Other ports: SMTP with optional STARTTLS (`SMTP_USE_TLS`)
+SMTP transport mode:
+- `SMTP_PORT=465`: implicit SSL (`SMTP_SSL`) is used automatically.
+- Any other port: SMTP with optional STARTTLS controlled by `SMTP_USE_TLS`.
 
 ## Environment Variables
 
@@ -120,23 +137,23 @@ SMTP_PASS=...
 HANDOFF_FROM_EMAIL=...
 HANDOFF_TO_EMAIL=...
 
-# Voice model defaults and per-agent voice overrides (optional)
-# Format: provider/model:voice_id
-SESSION_TTS=deepgram/aura-2:arcas
-FRONTDESK_TTS=deepgram/aura-2:andromeda
-# INTAKE_TTS is optional; if omitted, Intake uses SESSION_TTS
-SCHEDULER_TTS=deepgram/aura-2:amalthea
-BILLING_TTS=deepgram/aura-2:zeus
-
-# Optional call-center style ambient background:
-HH_ENABLE_BACKGROUND_AUDIO=1
-HH_BACKGROUND_AUDIO_VOLUME=0.15
-# Optional:
+# Optional
 # HANDOFF_CC_EMAIL=...
 # SMTP_USE_TLS=true
+
+# Session-level voice (also used by Intake)
+SESSION_TTS=deepgram/aura-2:arcas
+
+# Optional per-agent overrides
+FRONTDESK_TTS=deepgram/aura-2:andromeda
+SCHEDULER_TTS=deepgram/aura-2:amalthea
+
+# Optional background ambience
+HH_ENABLE_BACKGROUND_AUDIO=1
+HH_BACKGROUND_AUDIO_VOLUME=0.15
 ```
 
-Tracing flags (optional, recommended during debugging):
+Optional trace flags:
 
 ```env
 HH_TRACE_HANDOFFS=1
@@ -147,13 +164,11 @@ HH_TRACE_OBSERVER=1
 
 ## Install
 
-Using `uv`:
-
 ```bash
 uv sync
 ```
 
-Using `pip`:
+Alternative:
 
 ```bash
 pip install -e .
@@ -165,7 +180,7 @@ pip install -e .
 python agent.py dev
 ```
 
-Then connect from LiveKit Playground or your client app.
+Then connect using LiveKit Playground or your client app.
 
 ## Tests
 
@@ -173,11 +188,11 @@ Then connect from LiveKit Playground or your client app.
 pytest -q
 ```
 
-Current tests cover key areas:
-- availability/provider behavior
+Current tests cover:
+- availability provider behavior
 - dog weight task behavior
 - SMTP handoff tooling
-- observer parsing/evaluation behavior
+- observer parsing and evaluation behavior
 
 ## Project Layout
 
@@ -190,8 +205,8 @@ doheny-surf-desk/
     frontdesk_agent.py
     intake_agent.py
     scheduler_agent.py
-    billing_agent.py
-    gear_agent.py            # preserved, not in active path
+    billing_agent.py         # preserved, not active
+    gear_agent.py            # preserved, not active
     observer_agent.py
   tasks/
     name_task.py
@@ -208,8 +223,8 @@ doheny-surf-desk/
     test_*.py
 ```
 
-## Known Design Choices
+## Current Design Choices
 
-- Scheduler is currently backed by a mock provider (real API adapter can plug into `AvailabilityProvider`).
-- Gear flow is intentionally bypassed, but code is kept for future re-enable.
-- Observer runs in strict global mode with runtime fact grounding.
+- Scheduler remains mock-provider based in this phase; real API adapter can plug into `AvailabilityProvider`.
+- Gear is bypassed at runtime but intentionally kept in source.
+- Observer runs in strict global mode with static + runtime fact grounding.
