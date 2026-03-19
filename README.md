@@ -162,6 +162,17 @@ HH_TRACE_TOOLS=1
 HH_TRACE_OBSERVER=1
 ```
 
+Console logging level (optional):
+
+```env
+# Default is DEBUG if omitted
+HH_LOG_LEVEL=DEBUG
+```
+
+Notes:
+- The app now enforces runtime logger levels for `livekit`, `livekit.agents`, and `doheny-surf-desk`.
+- If trace flags are `1`, trace lines will print in the same console stream.
+
 ## Install
 
 ```bash

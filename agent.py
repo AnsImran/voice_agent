@@ -46,6 +46,25 @@ logger = logging.getLogger("doheny-surf-desk")
 DEFAULT_SESSION_TTS = "deepgram/aura-2:arcas"
 
 
+def configure_runtime_logging() -> None:
+    """Ensure verbose console logging is enabled for local debugging."""
+    level_name = os.getenv("HH_LOG_LEVEL", "DEBUG").upper()
+    level = getattr(logging, level_name, logging.DEBUG)
+
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s %(levelname)-8s %(name)s %(message)s",
+        )
+    root_logger.setLevel(level)
+
+    # Keep package loggers explicitly aligned with the selected level.
+    logging.getLogger("livekit").setLevel(level)
+    logging.getLogger("livekit.agents").setLevel(level)
+    logging.getLogger("doheny-surf-desk").setLevel(level)
+
+
 async def entrypoint(ctx: JobContext):
     """Main entrypoint for Happy Hound booking agent.
     
@@ -146,5 +165,6 @@ async def entrypoint(ctx: JobContext):
             logger.warning("Background audio could not be started: %s", exc)
 
 if __name__ == "__main__":
+    configure_runtime_logging()
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
 
