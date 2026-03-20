@@ -17,6 +17,7 @@ import logging
 import os
 from dotenv import load_dotenv
 
+from livekit import rtc
 from livekit.agents import (
     AudioConfig,
     BackgroundAudioPlayer,
@@ -44,6 +45,13 @@ load_dotenv(dotenv_path='.env')
 
 logger = logging.getLogger("doheny-surf-desk")
 DEFAULT_SESSION_TTS = "deepgram/aura-2:arcas"
+
+
+def _background_track_publish_options() -> rtc.TrackPublishOptions:
+    """Publish ambience as microphone-source audio for widest client compatibility."""
+    options = rtc.TrackPublishOptions()
+    options.source = rtc.TrackSource.Value("SOURCE_MICROPHONE")
+    return options
 
 
 def configure_runtime_logging() -> None:
@@ -138,6 +146,7 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
+    background_audio: BackgroundAudioPlayer | None = None
     if parse_env_bool("HH_ENABLE_BACKGROUND_AUDIO", default=True):
         ambient_volume = 0.15
         try:
@@ -152,7 +161,11 @@ async def entrypoint(ctx: JobContext):
                     volume=max(0.0, min(ambient_volume, 1.0)),
                 )
             )
-            await background_audio.start(room=ctx.room, agent_session=session)
+            await background_audio.start(
+                room=ctx.room,
+                agent_session=session,
+                track_publish_options=_background_track_publish_options(),
+            )
             trace_log(
                 logger=logger,
                 flag_name="HH_TRACE_HANDOFFS",
@@ -163,6 +176,25 @@ async def entrypoint(ctx: JobContext):
             )
         except Exception as exc:
             logger.warning("Background audio could not be started: %s", exc)
+    else:
+        logger.info("Background office ambience is disabled by HH_ENABLE_BACKGROUND_AUDIO")
+
+    async def _shutdown_background_audio(reason: str = "") -> None:
+        if not background_audio:
+            return
+        try:
+            await background_audio.aclose()
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_HANDOFFS",
+                trace_id=trace_id,
+                message="entrypoint.background_audio_closed",
+                reason=reason,
+            )
+        except Exception as exc:
+            logger.warning("Background audio cleanup failed: %s", exc)
+
+    ctx.add_shutdown_callback(_shutdown_background_audio)
 
 if __name__ == "__main__":
     configure_runtime_logging()
