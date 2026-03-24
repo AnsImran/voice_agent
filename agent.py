@@ -17,6 +17,12 @@ import logging
 import os
 from dotenv import load_dotenv
 
+# Load environment BEFORE importing agents so module-level env reads in
+# sub-modules (e.g. tools/gingr_availability.py) see the populated env.
+# Use an absolute path so LiveKit subprocess workers find the file regardless
+# of their working directory.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
 from livekit import rtc
 from livekit.agents import (
     AudioConfig,
@@ -39,9 +45,6 @@ from agents.intake_agent import IntakeAgent
 from agents.scheduler_agent import SchedulerAgent
 from agents.observer_agent import start_observer
 from utils import ensure_session_trace_id, parse_env_bool, trace_log
-
-# Load environment
-load_dotenv(dotenv_path='.env')
 
 logger = logging.getLogger("doheny-surf-desk")
 DEFAULT_SESSION_TTS = "deepgram/aura-2:arcas"

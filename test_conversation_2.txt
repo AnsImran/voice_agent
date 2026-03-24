@@ -1,747 +1,628 @@
 
 D:\others by Ans\test\3rd\voice_agent>uv run python agent.py dev
-    08:30:29.647 DEBUG  asyncio            Using proactor: IocpProactor
-    08:30:29.655 DEV    livekit.agents     Watching D:\others by Ans\test\3rd\voice_agent
-    08:30:32.670 DEBUG  asyncio            Using proactor: IocpProactor
-    08:30:32.682 INFO   livekit.agents     starting worker {"version": "1.4.4", "rtc-version": "1.1.2"}
-    08:30:32.685 INFO   livekit.agents     starting inference executor
-    08:30:32.703 INFO   livekit.agents     initializing process {"pid": 6564, "inference": true}
-    08:30:42.092 INFO   livekit.agents     process initialized {"pid": 6564, "inference": true, "elapsed_time": 9.39}
-    08:30:42.098 INFO   livekit.agents     HTTP server listening on :59380
-    08:30:42.332 INFO   livekit.agents     registered worker
-                                         {"agent_name": "", "id": "AW_NUP2CxpNg6mV", "url":
+2026-03-24 09:40:37,167 DEBUG    asyncio Using proactor: IocpProactor
+    09:40:37.167 DEBUG  asyncio            Using proactor: IocpProactor
+2026-03-24 09:40:37,177 DEV      livekit.agents Watching D:\others by Ans\test\3rd\voice_agent
+    09:40:37.177 DEV    livekit.agents     Watching D:\others by Ans\test\3rd\voice_agent
+    09:40:41.277 DEBUG  asyncio            Using proactor: IocpProactor
+    09:40:41.293 INFO   livekit.agents     starting worker {"version": "1.4.4", "rtc-version": "1.1.2"}
+    09:40:41.296 INFO   livekit.agents     starting inference executor
+    09:40:41.350 INFO   livekit.agents     initializing process {"pid": 7012, "inference": true}
+    09:40:55.021 INFO   livekit.agents     process initialized {"pid": 7012, "inference": true, "elapsed_time": 13.67}
+    09:40:55.027 INFO   livekit.agents     HTTP server listening on :65265
+    09:40:55.251 INFO   livekit.agents     registered worker
+                                         {"agent_name": "", "id": "AW_4otvWrLqcCRf", "url":
 "wss://happyhoundasst-2xikjx8k.livekit.cloud", "region": "US West B", "protocol": 16}
-    08:30:56.846 INFO   livekit.agents     received job request
-                                         {"job_id": "AJ_UAEgiJHzNz7N", "dispatch_id": "AD_TUjnGAsrAL97", "room":
-"playground-ZjEB-h7Rk", "room_id": "RM_6CfVck8vS5Vv", "agent_name": "", "resuming": false, "enable_recording": false}
-    08:30:56.894 DEBUG  livekit.agents     received assignment
-                                         {"agent_name": "", "room_id": "RM_6CfVck8vS5Vv", "room":
-"playground-ZjEB-h7Rk", "job_id": "AJ_UAEgiJHzNz7N", "dispatch_id": "AD_TUjnGAsrAL97", "enable_recording": false}
-                 WARNI… livekit.agents     no warmed process available for job, waiting for one to be created
-                                         {"job_id": "AJ_UAEgiJHzNz7N"}
-    08:30:56.910 INFO   livekit.agents     initializing job runner {"tid": 3388}
-                 DEBUG  asyncio            Using proactor: IocpProactor
-                 INFO   livekit.agents     job runner initialized {"tid": 3388, "elapsed_time": 0.0}
-                 INFO   doheny-surf-desk   Starting Happy Hound booking agent in room playground-ZjEB-h7Rk
-    08:30:57.712 INFO   doheny-surf-desk   [TRACE][hh-46562f5b5f] entrypoint.personas_initialized {"personas":
-                                           ["frontdesk", "intake", "scheduler", "billing"]}
-    08:30:58.134 WARNI… doheny-s….observer Observer facts file missing: D:\others by
+    09:40:55.552 INFO   livekit.agents     received job request
+                                         {"job_id": "AJ_yGvUvXEF42Xz", "dispatch_id": "AD_ExLv6ANRUojX", "room":
+"playground-a1lj-vXWf", "room_id": "RM_9zbXfTi5pKp2", "agent_name": "", "resuming": false, "enable_recording": false}
+    09:40:55.605 DEBUG  livekit.agents     received assignment
+                                         {"agent_name": "", "room_id": "RM_9zbXfTi5pKp2", "room":
+"playground-a1lj-vXWf", "job_id": "AJ_yGvUvXEF42Xz", "dispatch_id": "AD_ExLv6ANRUojX", "enable_recording": false}
+    09:40:55.609 WARNI… livekit.agents     no warmed process available for job, waiting for one to be created
+                                         {"job_id": "AJ_yGvUvXEF42Xz"}
+    09:40:55.616 INFO   livekit.agents     initializing job runner {"tid": 2212}
+    09:40:55.619 DEBUG  asyncio            Using proactor: IocpProactor
+    09:40:55.621 INFO   livekit.agents     job runner initialized {"tid": 2212, "elapsed_time": 0.0}
+    09:40:55.628 INFO   doheny-surf-desk   Starting Happy Hound booking agent in room playground-a1lj-vXWf
+    09:40:56.674 INFO   doheny-surf-desk   [TRACE][hh-dd37954361] entrypoint.personas_initialized {"personas":
+                                           ["frontdesk", "intake", "scheduler"]}
+    09:40:57.273 WARNI… doheny-s….observer Observer facts file missing: D:\others by
                                            Ans\test\3rd\voice_agent\business_info_happy_hound.txt
-    08:30:58.139 INFO   doheny-s….observer ObserverAgent initialized: model=gpt-5 eval_threshold=6
-    08:30:58.142 INFO   doheny-s….observer Observer agent started with hallucination monitoring
-    08:30:58.145 INFO   doheny-surf-desk   [TRACE][hh-46562f5b5f] entrypoint.observer_started {"observer_model":
+    09:40:57.285 INFO   doheny-s….observer ObserverAgent initialized: model=gpt-5 eval_threshold=6
+    09:40:57.292 INFO   doheny-s….observer Observer agent started with hallucination monitoring
+    09:40:57.297 INFO   doheny-surf-desk   [TRACE][hh-dd37954361] entrypoint.observer_started {"observer_model":
                                            "gpt-5"}
-    08:30:58.148 INFO   doheny-surf-desk   Starting session with FrontDeskAgent
-    08:30:58.153 WARNI… livekit.agents     RoomInputOptions and RoomOutputOptions are deprecated, use RoomOptions
+    09:40:57.304 INFO   doheny-surf-desk   Starting session with FrontDeskAgent
+    09:40:57.308 WARNI… livekit.agents     RoomInputOptions and RoomOutputOptions are deprecated, use RoomOptions
                                            instead
-    08:30:58.159 DEBUG  livekit.agents     input stream attached
+    09:40:57.320 DEBUG  livekit.agents     input stream attached
                                          {"participant": null, "source": "SOURCE_UNKNOWN", "accepted_sources":
 ["SOURCE_MICROPHONE"]}
-    08:30:58.169 DEBUG  livekit.agents     http_session(): creating a new httpclient ctx
-    08:30:58.577 DEBUG  livekit.agents     using audio io: `RoomIO` -> `AgentSession` -> `TranscriptSynchronizer` ->
+    09:40:57.337 DEBUG  livekit.agents     http_session(): creating a new httpclient ctx
+    09:40:57.992 DEBUG  livekit.agents     using audio io: `RoomIO` -> `AgentSession` -> `TranscriptSynchronizer` ->
                                            `RoomIO`
-    08:30:58.592 DEBUG  livekit.agents     using transcript io: `AgentSession` -> `TranscriptSynchronizer` -> `RoomIO`
-    08:30:58.971 DEBUG  livekit.agents     start reading stream
-                                         {"participant": "identity-f8n1", "source": "SOURCE_MICROPHONE"}
-    08:30:59.009 INFO   doheny-surf-desk   [TRACE][hh-46562f5b5f] entrypoint.background_audio_started {"clip":
+    09:40:58.027 DEBUG  livekit.agents     using transcript io: `AgentSession` -> `TranscriptSynchronizer` -> `RoomIO`
+    09:40:58.153 INFO   doheny-surf-desk   [TRACE][hh-dd37954361] entrypoint.background_audio_started {"clip":
                                            "OFFICE_AMBIENCE", "volume": 0.15}
-    08:31:00.591 DEBUG  livekit.agents     aec warmup active, disabling interruptions for 3.00s
-    08:31:02.626 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.6263284999555908}
-    08:31:03.418 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 1.0971023999676106}
-    08:31:03.714 DEBUG  livekit.agents     aec warmup expired, re-enabling interruptions
-    08:31:10.621 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Hello there! This is the Happy Hound
-                                           front desk assistant. How can I help you today with daycare, boarding,
-                                           training, grooming, or availability questions?
-    08:31:10.626 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Hello there! This is the Happy Hound front desk assistant.
-                                           How can I help you today with daycare, boarding, training, grooming, or
-                                           availability questions?"}
-    08:31:21.113 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "I have actually, uh, several, uh,", "language": "en",
-"transcript_delay": 0.34301185607910156}
-    08:31:22.866 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "questions for you.", "language": "en", "transcript_delay":
-0.5430128574371338}
-    08:31:23.175 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.17138080298900604, "duration": 0.283, "input":
-"<|im_start|>assistant\nhello there this is the happy hound front desk assistant how can i help you today with daycare
-boarding training grooming or availability questions<|im_end|>\n<|im_start|>user\ni have actually uh several uh
-questions for you"}
-    08:31:23.193 INFO   doheny-s….observer [OBSERVER] Captured user turn: I have actually, uh, several, uh, questions
-                                           for you.
-    08:31:23.198 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "I have actually, uh, several, uh, questions for you."}
-    08:31:32.611 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Of course! I'm here to help. Just go
-                                           ahead and ask your questions, and I'll do my best to assist you with each
-                                           one.
-    08:31:32.616 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Of course! I'm here to help. Just go ahead and ask your
-                                           questions, and I'll do my best to assist you with each one."}
-    08:31:41.915 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "So what is the cost of this drop in", "language": "en",
-"transcript_delay": 0.34200191497802734}
-    08:31:43.115 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "day visit?", "language": "en", "transcript_delay":
-0.4450986385345459}
-    08:31:43.678 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.13461829721927643, "duration": 0.501, "input":
-"<|im_start|>assistant\nhello there this is the happy hound front desk assistant how can i help you today with daycare
-boarding training grooming or availability questions<|im_end|>\n<|im_start|>user\ni have actually uh several uh
-questions for you<|im_end|>\n<|im_start|>assistant\nof course i'm here to help just go ahead and ask your questions and
-i'll do my best to assist you with each one<|im_end|>\n<|im_start|>user\nso what is the cost of this drop in day visit"}
-    08:31:43.697 INFO   doheny-s….observer [OBSERVER] Captured user turn: So what is the cost of this drop in day
-                                           visit?
-    08:31:43.704 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "So what is the cost of this drop in day visit?"}
-    08:31:47.570 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Uh, what is the cost of enhanced", "language": "en",
-"transcript_delay": 0.2850062847137451}
-    08:31:49.363 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "care, day care,", "language": "en", "transcript_delay":
-0.39301252365112305}
-    08:31:53.023 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "And what is the cost of golden leash club?", "language":
-"en", "transcript_delay": 0.3985927104949951}
-    08:31:53.763 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Card?", "language": "en", "transcript_delay":
-0.442014217376709}
-    08:31:56.419 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "And what about this, um,", "language": "en",
-"transcript_delay": 0.6970069408416748}
-    08:31:58.867 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "classic, uh, sleepover?", "language": "en",
-"transcript_delay": 0.3930041790008545}
-    08:32:02.267 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "And what is the meaning of boarding?", "language": "en",
-"transcript_delay": 0.2374868392944336}
-    08:32:04.606 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.11152802407741547, "duration": 2.191, "input":
-"<|im_start|>assistant\nhello there this is the happy hound front desk assistant how can i help you today with daycare
-boarding training grooming or availability questions<|im_end|>\n<|im_start|>user\ni have actually uh several uh
-questions for you<|im_end|>\n<|im_start|>assistant\nof course i'm here to help just go ahead and ask your questions and
-i'll do my best to assist you with each one<|im_end|>\n<|im_start|>user\nso what is the cost of this drop in day visit
-uh what is the cost of enhanced care day care and what is the cost of golden leash club card and what about this um
-classic uh sleepover and what is the meaning of boarding"}
-    08:32:04.630 INFO   doheny-s….observer [OBSERVER] Captured user turn: Uh, what is the cost of enhanced care, day
-                                           care, And what is the cost of golden leash club? Card? And what about this,
-                                           um, classic, uh, sleepover? And what is the meaning of boarding?
-    08:32:04.636 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Uh, what is the cost of enhanced care, day care, And what is the cost of
-                                           golden leash club? Card? And what about this, um, classic, uh, sleepover?
-                                           And what is the meaning of boarding?"}
-    08:32:44.919 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Sure, let's go through those one by
-                                           one.
-
-                                           First, a Drop-in Day Visit is seventy dollars per day.
-
-                                           The Enhanced Care Daycare costs ninety-five dollars per day.
-
-                                           The Golden Leash Club Card offers unlimited daycare for seven hundred
-                                           seventy-five dollars per month with a six-month commitment, which breaks
-                                           down to about twenty-five dollars per day.
-
-                                           For the Classic Sleepover, it costs one hundred twenty-five dollars per
-                                           night and includes a full day of daycare.
-
-                                           Lastly, "boarding" refers to the service where your dog stays overnight at
-                                           our facility, including both the sleep and the playtime during the day.
-    08:32:44.935 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Sure, let's go through those one by one. \n\nFirst, a
-                                           Drop-in Day Visit is seventy dollars per day. \n\nThe Enhanced Care Daycare
-                                           costs ninety-five dollars per day. \n\nThe Golden Leash Club Card offers
-                                           unlimited daycare for seven hundred seventy-five dollars per month with a
-                                           six-month commitment, which breaks down to about twenty-five dollars per
-                                           day. \n\nFor the Classic Sleepover, it costs one hundred twenty-five
-                                           dollars per night and includes a full day of daycare.\n\nLastly,
-                                           \"boarding\" refers to the service where your dog stays overnight at our
-                                           facility, including both the sleep and the playtime during the day."}
-    08:32:44.947 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
-    08:32:44.953 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.trigger_evaluation {"total_segments": 6,
+    09:41:07.529 INFO   livekit.agents     received job request
+                                         {"job_id": "AJ_7Sh33c93XhpC", "dispatch_id": "AD_vdcxeAaKYjmi", "room":
+"playground-T6qp-dKT2", "room_id": "RM_nJYsHmxpSRHn", "agent_name": "", "resuming": false, "enable_recording": false}
+    09:41:07.579 DEBUG  livekit.agents     received assignment
+                                         {"agent_name": "", "room_id": "RM_nJYsHmxpSRHn", "room":
+"playground-T6qp-dKT2", "job_id": "AJ_7Sh33c93XhpC", "dispatch_id": "AD_vdcxeAaKYjmi", "enable_recording": false}
+    09:41:07.636 WARNI… livekit.agents     no warmed process available for job, waiting for one to be created
+                                         {"job_id": "AJ_7Sh33c93XhpC"}
+    09:41:07.648 INFO   livekit.agents     initializing job runner {"tid": 2752}
+    09:41:07.655 DEBUG  asyncio            Using proactor: IocpProactor
+    09:41:07.660 INFO   livekit.agents     job runner initialized {"tid": 2752, "elapsed_time": 0.01}
+    09:41:07.667 INFO   doheny-surf-desk   Starting Happy Hound booking agent in room playground-T6qp-dKT2
+    09:41:08.269 INFO   doheny-surf-desk   [TRACE][hh-333f6a3676] entrypoint.personas_initialized {"personas":
+                                           ["frontdesk", "intake", "scheduler"]}
+    09:41:08.781 WARNI… doheny-s….observer Observer facts file missing: D:\others by
+                                           Ans\test\3rd\voice_agent\business_info_happy_hound.txt
+    09:41:08.789 INFO   doheny-s….observer ObserverAgent initialized: model=gpt-5 eval_threshold=6
+    09:41:08.794 INFO   doheny-s….observer Observer agent started with hallucination monitoring
+    09:41:08.800 INFO   doheny-surf-desk   [TRACE][hh-333f6a3676] entrypoint.observer_started {"observer_model":
+                                           "gpt-5"}
+    09:41:08.807 INFO   doheny-surf-desk   Starting session with FrontDeskAgent
+    09:41:08.816 WARNI… livekit.agents     RoomInputOptions and RoomOutputOptions are deprecated, use RoomOptions
+                                           instead
+    09:41:08.830 DEBUG  livekit.agents     input stream attached
+                                         {"participant": null, "source": "SOURCE_UNKNOWN", "accepted_sources":
+["SOURCE_MICROPHONE"]}
+    09:41:08.855 DEBUG  livekit.agents     http_session(): creating a new httpclient ctx
+    09:41:09.618 DEBUG  livekit.agents     start reading stream
+                                         {"participant": "identity-xaio", "source": "SOURCE_MICROPHONE"}
+    09:41:09.695 DEBUG  livekit.agents     using audio io: `RoomIO` -> `AgentSession` -> `TranscriptSynchronizer` ->
+                                           `RoomIO`
+    09:41:09.717 DEBUG  livekit.agents     using transcript io: `AgentSession` -> `TranscriptSynchronizer` -> `RoomIO`
+    09:41:09.743 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:09.941 INFO   doheny-surf-desk   [TRACE][hh-333f6a3676] entrypoint.background_audio_started {"clip":
+                                           "OFFICE_AMBIENCE", "volume": 0.15}
+    09:41:11.409 DEBUG  livekit.agents     aec warmup active, disabling interruptions for 3.00s
+    09:41:13.697 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:14.406 DEBUG  livekit.agents     aec warmup expired, re-enabling interruptions
+    09:41:18.666 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:22.624 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Hello there! I'm the front desk
+                                           assistant for Happy Hound, and I'm here to help with any daycare, boarding,
+                                           training, grooming, or availability questions you might have today. How can
+                                           I assist you?
+    09:41:22.631 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "Hello there! I'm the front desk assistant for Happy Hound,
+                                           and I'm here to help with any daycare, boarding, training, grooming, or
+                                           availability questions you might have today. How can I assist you?"}
+    09:41:23.684 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:26.858 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Uh, I want you to know about this grooming.", "language":
+"en", "transcript_delay": 0.3317091464996338}
+    09:41:28.516 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "What kind of services do you", "language": "en",
+"transcript_delay": 0.3401172161102295}
+    09:41:28.699 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:29.339 DEBUG  livekit.agents     aec warmup expired, re-enabling interruptions
+    09:41:29.345 DEBUG  livekit.agents     input stream detached
+                                         {"participant": null, "source": "SOURCE_UNKNOWN", "accepted_sources":
+["SOURCE_MICROPHONE"]}
+    09:41:29.898 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "offer related to?", "language": "en", "transcript_delay":
+0.768463134765625}
+    09:41:31.170 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.007371220737695694, "duration": 0.645, "input":
+"<|im_start|>assistant\nhello there i'm the front desk assistant for happy hound and i'm here to help with any daycare
+boarding training grooming or availability questions you might have today how can i assist
+you<|im_end|>\n<|im_start|>user\nuh i want you to know about this grooming what kind of services do you offer related
+to"}
+    09:41:31.334 DEBUG  livekit.agents     session closed {"reason": "user_initiated", "error": null}
+    09:41:31.341 DEBUG  livekit.agents     shutting down job task
+                                         {"reason": "room disconnected", "user_initiated": false}
+    09:41:31.348 DEBUG  livekit.agents     job exiting
+                                         {"reason": "room disconnected", "tid": 2212, "job_id": "AJ_yGvUvXEF42Xz",
+"room_id": "RM_9zbXfTi5pKp2"}
+    09:41:31.356 INFO   doheny-surf-desk   [TRACE][hh-dd37954361] entrypoint.background_audio_closed {"reason": "room
+                                           disconnected"}
+    09:41:31.357 WARNI… livekit            livekit::room::participant:400:livekit::room::participant - could not find
+                                           publication to remove: TrackSid("TR_AMYYjYQTWF42KX")
+    09:41:31.368 DEBUG  livekit.agents     http_session(): closing the httpclient ctx
+    09:41:32.135 INFO   doheny-s….observer [OBSERVER] Captured user turn: Uh, I want you to know about this grooming.
+                                           What kind of services do you offer related to?
+    09:41:32.140 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Uh, I want you to know about this grooming. What kind of services do you
+                                           offer related to?"}
+    09:41:33.710 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:38.695 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:43.713 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:48.716 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:53.738 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:41:55.812 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: We offer a variety of grooming services
+                                           at Happy Hound. Our bath menu includes options like the Basic Bath, Deluxe
+                                           Bath, and Shed-less Bath, with prices based on your dog's size.
+                                           Additionally, our grooming menu features Mini Groom and Full Groom
+                                           services, also tailored to your dog's size. If you'd like more details on
+                                           any specific grooming service or to schedule an appointment, let me know!
+    09:41:55.828 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "We offer a variety of grooming services at Happy Hound. Our
+                                           bath menu includes options like the Basic Bath, Deluxe Bath, and Shed-less
+                                           Bath, with prices based on your dog's size. Additionally, our grooming menu
+                                           features Mini Groom and Full Groom services, also tailored to your dog's
+                                           size. If you'd like more details on any specific grooming service or to
+                                           schedule an appointment, let me know!"}
+    09:41:58.737 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:02.446 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "So what about this basic bath?", "language": "en",
+"transcript_delay": 0.5080544948577881}
+    09:42:03.747 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:04.382 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.6070373000176623}
+    09:42:05.593 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.15524302423000336, "duration": 1.817, "input":
+"<|im_start|>assistant\nhello there i'm the front desk assistant for happy hound and i'm here to help with any daycare
+boarding training grooming or availability questions you might have today how can i assist
+you<|im_end|>\n<|im_start|>user\nuh i want you to know about this grooming what kind of services do you offer related
+to<|im_end|>\n<|im_start|>assistant\nwe offer a variety of grooming services at happy hound our bath menu includes
+options like the basic bath deluxe bath and shed-less bath with prices based on your dog's size additionally our
+grooming menu features mini groom and full groom services also tailored to your dog's size if you'd like more details on
+any specific grooming service or to schedule an appointment let me know<|im_end|>\n<|im_start|>user\nso what about this
+basic bath"}
+    09:42:05.620 INFO   doheny-s….observer [OBSERVER] Captured user turn: So what about this basic bath?
+    09:42:05.624 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "So what about this basic bath?"}
+    09:42:08.744 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:13.755 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:18.762 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:23.775 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:24.374 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: The Basic Bath includes a thorough wash
+                                           and dry, and the pricing depends on your dog's size. For dogs up to
+                                           nineteen pounds, it's fifty-five dollars; dogs between twenty and sixty
+                                           pounds, it's seventy dollars; and for dogs over sixty pounds, it's ninety
+                                           dollars. If you have any other questions or want to schedule a grooming
+                                           session, just let me know!
+    09:42:24.381 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "The Basic Bath includes a thorough wash and dry, and the
+                                           pricing depends on your dog's size. For dogs up to nineteen pounds, it's
+                                           fifty-five dollars; dogs between twenty and sixty pounds, it's seventy
+                                           dollars; and for dogs over sixty pounds, it's ninety dollars. If you have
+                                           any other questions or want to schedule a grooming session, just let me
+                                           know!"}
+    09:42:28.778 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:33.793 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:35.353 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yes.", "language": "en", "transcript_delay":
+0.47246432304382324}
+    09:42:36.644 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.06818018853664398, "duration": 1.213, "input":
+"<|im_start|>assistant\nhello there i'm the front desk assistant for happy hound and i'm here to help with any daycare
+boarding training grooming or availability questions you might have today how can i assist
+you<|im_end|>\n<|im_start|>user\nuh i want you to know about this grooming what kind of services do you offer related
+to<|im_end|>\n<|im_start|>assistant\nwe offer a variety of grooming services at happy hound our bath menu includes
+options like the basic bath deluxe bath and shed-less bath with prices based on your dog's size additionally our
+grooming menu features mini groom and full groom services also tailored to your dog's size if you'd like more details on
+any specific grooming service or to schedule an appointment let me know<|im_end|>\n<|im_start|>user\nso what about this
+basic bath<|im_end|>\n<|im_start|>assistant\nthe basic bath includes a thorough wash and dry and the pricing depends on
+your dog's size for dogs up to nineteen pounds it's fifty-five dollars dogs between twenty and sixty pounds it's seventy
+dollars and for dogs over sixty pounds it's ninety dollars if you have any other questions or want to schedule a
+grooming session just let me know<|im_end|>\n<|im_start|>user\nyes"}
+    09:42:36.667 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes.
+    09:42:36.670 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yes."}
+    09:42:36.677 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
+    09:42:36.687 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.trigger_evaluation {"total_segments": 6,
                                            "new_segments": 6}
-    08:32:44.958 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.evaluate_context {"context_hash":
-                                           "a70687be31e7a66015f030a4e6732189ccc91cffc37dfd3c371cb33a065dc166",
+    09:42:36.702 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.evaluate_context {"context_hash":
+                                           "39235f2f0362bb5df132d0ce58aa3e77c766bfdeff0844a1a4a103af9cd28de0",
                                            "userdata_summary": "No user data yet", "tool_facts": "{}"}
-    08:32:50.258 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Okay.", "language": "en", "transcript_delay":
-0.4329226016998291}
-    08:32:51.964 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Um, thanks a lot.", "language": "en", "transcript_delay":
-0.39101171493530273}
-    08:32:55.975 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "I would like to book this Golden Lease Club card.",
-"language": "en", "transcript_delay": 0.45105886459350586}
-    08:32:56.731 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.22166666388511658, "duration": 0.654, "input":
-"<|im_start|>user\ni have actually uh several uh questions for you<|im_end|>\n<|im_start|>assistant\nof course i'm here
-to help just go ahead and ask your questions and i'll do my best to assist you with each
-one<|im_end|>\n<|im_start|>user\nso what is the cost of this drop in day visit uh what is the cost of enhanced care day
-care and what is the cost of golden leash club card and what about this um classic uh sleepover and what is the meaning
-of boarding<|im_end|>\n<|im_start|>assistant\nsure let's go through those one by one first a drop-in day visit is
-seventy dollars per day the enhanced care daycare costs ninety-five dollars per day the golden leash club card offers
-unlimited daycare for seven hundred seventy-five dollars per month with a six-month commitment which breaks down to
-about twenty-five dollars per day for the classic sleepover it costs one hundred twenty-five dollars per night and
-includes a full day of daycare lastly boarding refers to the service where your dog stays overnight at our facility
-including both the sleep and the playtime during the day<|im_end|>\n<|im_start|>user\nokay um thanks a lot i would like
-to book this golden lease club card"}
-    08:32:56.753 INFO   doheny-s….observer [OBSERVER] Captured user turn: Okay. Um, thanks a lot. I would like to book
-                                           this Golden Lease Club card.
-    08:32:56.757 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Okay. Um, thanks a lot. I would like to book this Golden Lease Club
-                                           card."}
-    08:32:57.450 DEBUG  livekit.agents     executing tool
-                                         {"function": "start_booking", "arguments": "{\"service_request\":\"Golden Leash
-Club Card\"}", "speech_id": "speech_c20f344ae669"}
-    08:32:57.456 INFO   doheny-s…frontdesk [TRACE][hh-46562f5b5f] frontdesk.start_booking {"from_agent":
+    09:42:38.490 DEBUG  livekit.agents     executing tool
+                                         {"function": "start_booking", "arguments": "{\"service_request\":\"Basic Bath
+grooming appointment\"}", "speech_id": "speech_0b14e11b3a45"}
+    09:42:38.496 INFO   doheny-s…frontdesk [TRACE][hh-333f6a3676] frontdesk.start_booking {"from_agent":
                                            "FrontDeskAgent", "to_agent": "IntakeAgent", "changes":
                                            {"handoff_pending_action": {"before": null, "after": "scheduler_on_enter"},
-                                           "requested_services": {"before": [], "after": ["daycare"]},
-                                           "service_family": {"before": null, "after": "daycare"}, "service_plan":
-                                           {"before": null, "after": "golden_leash_club"}}}
-    08:33:02.896 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.17824329995922744}
-    08:33:05.272 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great. I'm now transferring your call
+                                           "requested_services": {"before": [], "after": ["grooming"]},
+                                           "service_family": {"before": null, "after": "grooming"}}}
+    09:42:38.602 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "I would like", "language": "en", "transcript_delay":
+0.4726557731628418}
+    09:42:38.621 DEBUG  livekit.agents     waiting for function call to finish before fully cancelling
+                                         {"functions": ["func_exec_start_booking"], "speech_id": "speech_0b14e11b3a45"}
+    09:42:38.919 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:40.520 ERROR  livekit.agents     error decoding audio
+Traceback (most recent call last):
+  File "D:\others by Ans\test\3rd\voice_agent\.venv\Lib\site-packages\livekit\agents\utils\codecs\decoder.py", line 416,
+in _decode_loop
+    container = av.open(
+                ^^^^^^^^
+  File "av/container/core.pyx", line 417, in av.container.core.open
+  File "av/container/core.pyx", line 282, in av.container.core.Container.__cinit__
+  File "av/container/core.pyx", line 302, in av.container.core.Container.err_check
+  File "av/error.pyx", line 424, in av.error.err_check
+av.error.EOFError: [Errno 541478725] End of file: '<none>'
+
+    09:42:40.648 WARNI… livekit            AudioMixer: stream <async_generator object
+                                           BackgroundAudioPlayer._play_task.<locals>._gen_wrapper at
+                                           0x00000196A5A28D00> timeout, ignoring
+    09:42:41.303 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "to schedule", "language": "en", "transcript_delay":
+0.47162795066833496}
+    09:42:41.340 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_0b14e11b3a45"}
+    09:42:42.855 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "a grooming session.", "language": "en",
+"transcript_delay": 0.22671747207641602}
+    09:42:43.803 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:44.166 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.25079092383384705, "duration": 1.185, "input":
+"<|im_start|>user\nuh i want you to know about this grooming what kind of services do you offer related
+to<|im_end|>\n<|im_start|>assistant\nwe offer a variety of grooming services at happy hound our bath menu includes
+options like the basic bath deluxe bath and shed-less bath with prices based on your dog's size additionally our
+grooming menu features mini groom and full groom services also tailored to your dog's size if you'd like more details on
+any specific grooming service or to schedule an appointment let me know<|im_end|>\n<|im_start|>user\nso what about this
+basic bath<|im_end|>\n<|im_start|>assistant\nthe basic bath includes a thorough wash and dry and the pricing depends on
+your dog's size for dogs up to nineteen pounds it's fifty-five dollars dogs between twenty and sixty pounds it's seventy
+dollars and for dogs over sixty pounds it's ninety dollars if you have any other questions or want to schedule a
+grooming session just let me know<|im_end|>\n<|im_start|>user\nyes i would like to schedule a grooming session"}
+    09:42:44.212 INFO   doheny-s….observer [OBSERVER] Captured user turn: I would like to schedule a grooming session.
+    09:42:44.220 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "I would like to schedule a grooming session."}
+    09:42:45.032 DEBUG  livekit.agents     executing tool
+                                         {"function": "start_booking", "arguments": "{\"service_request\":\"Basic Bath
+grooming session\"}", "speech_id": "speech_aa2d72df5316"}
+    09:42:45.040 INFO   doheny-s…frontdesk [TRACE][hh-333f6a3676] frontdesk.start_booking {"from_agent":
+                                           "FrontDeskAgent", "to_agent": "IntakeAgent", "changes": {}}
+    09:42:48.831 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:52.440 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great. I'm now transferring your call
                                            to our Intake Department to collect your details. Kindly wait a moment
                                            while I connect you.
-    08:33:05.277 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
+    09:42:52.446 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
                                            "transcript": "Great. I'm now transferring your call to our Intake
                                            Department to collect your details. Kindly wait a moment while I connect
                                            you."}
-    08:33:05.292 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_c20f344ae669"}
-    08:33:12.105 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Hi, this is the Intake Department at
+    09:42:52.456 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_aa2d72df5316"}
+    09:42:53.814 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:58.837 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:42:58.911 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Hi, this is the Intake Department at
                                            Happy Hound. I'll collect a few quick details to get your booking started.
-    08:33:12.109 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
+    09:42:58.916 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
                                            "transcript": "Hi, this is the Intake Department at Happy Hound. I'll
                                            collect a few quick details to get your booking started."}
-    08:33:15.312 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Could you please tell me your full
+    09:43:01.721 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Could you please tell me your full
                                            name?
-    08:33:15.316 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
+    09:43:01.731 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
                                            "transcript": "Could you please tell me your full name?"}
-    08:33:22.064 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Yes. My full name is Michael Jackson.", "language": "en",
-"transcript_delay": 0.036995887756347656}
-    08:33:22.710 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.7752729058265686, "duration": 0.134, "input":
-"<|im_start|>assistant\ncould you please tell me your full name<|im_end|>\n<|im_start|>user\nyes my full name is michael
-jackson"}
-    08:33:22.730 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. My full name is Michael Jackson.
-    08:33:22.735 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Yes. My full name is Michael Jackson."}
-    08:33:23.647 DEBUG  livekit.agents     executing tool
+    09:43:03.977 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:04.989 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "It's Michael.", "language": "en", "transcript_delay":
+0.21923255920410156}
+    09:43:05.351 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.058890145272016525, "duration": 0.218, "input":
+"<|im_start|>assistant\ncould you please tell me your full name<|im_end|>\n<|im_start|>user\nit's michael"}
+    09:43:05.372 INFO   doheny-s….observer [OBSERVER] Captured user turn: It's Michael.
+    09:43:05.376 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "It's Michael."}
+    09:43:08.837 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:10.100 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Could you please provide your full
+                                           name, including your last name?
+    09:43:10.107 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "Could you please provide your full name, including your last
+                                           name?"}
+    09:43:10.115 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
+    09:43:10.119 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.trigger_evaluation {"total_segments": 12,
+                                           "new_segments": 6}
+    09:43:10.125 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.evaluate_context {"context_hash":
+                                           "77eaa5609ef84d00ace14c96414b65fda34826f52ed2006b1fbd3cb34de9a2b4",
+                                           "userdata_summary": "Services: grooming, ServiceFamily: grooming",
+                                           "tool_facts": "{\"frontdesk_selection\": {\"service_request\": \"Basic Bath
+                                           grooming session\", \"service_family\": \"grooming\", \"service_plan\":
+                                           null}}"}
+    09:43:13.818 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yeah. It's Michael", "language": "en", "transcript_delay":
+0.4922630786895752}
+    09:43:13.852 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:14.860 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Jackson.", "language": "en", "transcript_delay":
+0.5757136344909668}
+    09:43:15.621 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.8280836343765259, "duration": 0.404, "input":
+"<|im_start|>assistant\ncould you please tell me your full name<|im_end|>\n<|im_start|>user\nit's
+michael<|im_end|>\n<|im_start|>assistant\ncould you please provide your full name including your last
+name<|im_end|>\n<|im_start|>user\nyeah it's michael jackson"}
+    09:43:15.642 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yeah. It's Michael Jackson.
+    09:43:15.646 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yeah. It's Michael Jackson."}
+    09:43:16.546 DEBUG  livekit.agents     executing tool
                                          {"function": "record_name", "arguments": "{\"name\":\"Michael Jackson\"}",
-"speech_id": "speech_31bd5914930b"}
-    08:33:23.658 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_31bd5914930b"}
-    08:33:27.991 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Thank you, Michael. Could you please
-                                           provide your phone number?
-    08:33:27.995 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Thank you, Michael. Could you please provide your phone
-                                           number?"}
-    08:33:28.001 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
-    08:33:28.004 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.trigger_evaluation {"total_segments": 12,
-                                           "new_segments": 6}
-    08:33:28.010 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.evaluate_context {"context_hash":
-                                           "8ab79e66b1e82a95530014daa9d7100da6fee2994d9df14a29c230d474b24915",
-                                           "userdata_summary": "Services: daycare, ServiceFamily: daycare,
-                                           ServicePlan: golden_leash_club", "tool_facts": "{\"frontdesk_selection\":
-                                           {\"service_request\": \"Golden Leash Club Card\", \"service_family\":
-                                           \"daycare\", \"service_plan\": \"golden_leash_club\"}}"}
-    08:33:32.858 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Um, it's zero three zero zero.", "language": "en",
-"transcript_delay": 0.3885841369628906}
-    08:33:34.606 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Seven eight five", "language": "en", "transcript_delay":
-0.3789973258972168}
-    08:33:36.861 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "one seven double zero.", "language": "en",
-"transcript_delay": 0.4900095462799072}
-    08:33:37.269 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.3555516302585602, "duration": 0.341, "input":
-"<|im_start|>assistant\ncould you please tell me your full name<|im_end|>\n<|im_start|>user\nyes my full name is michael
-jackson<|im_end|>\n<|im_start|>assistant\nthank you michael could you please provide your phone
-number<|im_end|>\n<|im_start|>user\num it's zero three zero zero seven eight five one seven double zero"}
-    08:33:37.290 INFO   doheny-s….observer [OBSERVER] Captured user turn: Um, it's zero three zero zero. Seven eight
-                                           five one seven double zero.
-    08:33:37.295 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Um, it's zero three zero zero. Seven eight five one seven double zero."}
-    08:33:37.982 DEBUG  livekit.agents     executing tool
-                                         {"function": "record_phone", "arguments": "{\"phone\":\"0300-7851700\"}",
-"speech_id": "speech_a7a90d70cb64"}
-    08:33:37.991 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_a7a90d70cb64"}
-    08:33:46.441 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Thank you for that. So, your phone
-                                           number is zero three zero zero, seven eight five, one seven zero zero. Is
-                                           that correct?
-    08:33:46.446 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Thank you for that. So, your phone number is zero three zero
-                                           zero, seven eight five, one seven zero zero. Is that correct?"}
-    08:33:50.301 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Yes. That's correct.", "language": "en",
-"transcript_delay": 0.47554945945739746}
-    08:33:50.856 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.9156712293624878, "duration": 0.478, "input":
-"<|im_start|>assistant\ncould you please tell me your full name<|im_end|>\n<|im_start|>user\nyes my full name is michael
-jackson<|im_end|>\n<|im_start|>assistant\nthank you michael could you please provide your phone
-number<|im_end|>\n<|im_start|>user\num it's zero three zero zero seven eight five one seven double
-zero<|im_end|>\n<|im_start|>assistant\nthank you for that so your phone number is zero three zero zero seven eight five
-one seven zero zero is that correct<|im_end|>\n<|im_start|>user\nyes that's correct"}
-    08:33:50.877 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. That's correct.
-    08:33:50.879 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Yes. That's correct."}
-    08:33:51.575 DEBUG  livekit.agents     executing tool
+"speech_id": "speech_51019542ecbf"}
+    09:43:16.555 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_51019542ecbf"}
+    09:43:18.875 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:23.869 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:23.945 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Thank you, Michael Jackson! Could you
+                                           please provide your phone number so I can make sure we have the correct
+                                           contact information for you?
+    09:43:23.951 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "Thank you, Michael Jackson! Could you please provide your
+                                           phone number so I can make sure we have the correct contact information for
+                                           you?"}
+    09:43:27.490 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Zero three zero zero.", "language": "en",
+"transcript_delay": 0.40883398056030273}
+    09:43:28.891 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:30.305 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Seven eight five one seven double zero.", "language":
+"en", "transcript_delay": 0.4789862632751465}
+    09:43:31.333 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.34171366691589355, "duration": 0.949, "input":
+"<|im_start|>assistant\ncould you please tell me your full name<|im_end|>\n<|im_start|>user\nit's
+michael<|im_end|>\n<|im_start|>assistant\ncould you please provide your full name including your last
+name<|im_end|>\n<|im_start|>user\nyeah it's michael jackson<|im_end|>\n<|im_start|>assistant\nthank you michael jackson
+could you please provide your phone number so i can make sure we have the correct contact information for
+you<|im_end|>\n<|im_start|>user\nzero three zero zero seven eight five one seven double zero"}
+    09:43:31.357 INFO   doheny-s….observer [OBSERVER] Captured user turn: Zero three zero zero. Seven eight five one
+                                           seven double zero.
+    09:43:31.362 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Zero three zero zero. Seven eight five one seven double zero."}
+    09:43:32.380 DEBUG  livekit.agents     executing tool
+                                         {"function": "record_phone", "arguments": "{\"phone\":\"0300 785 1700\"}",
+"speech_id": "speech_9053514f9b38"}
+    09:43:32.390 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_9053514f9b38"}
+    09:43:33.894 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:38.884 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:42.303 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Thank you! Let me read that back to
+                                           you. Your phone number is zero three zero zero, seven eight five, one seven
+                                           zero zero. Is that correct?
+    09:43:42.309 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "Thank you! Let me read that back to you. Your phone number
+                                           is zero three zero zero, seven eight five, one seven zero zero. Is that
+                                           correct?"}
+    09:43:43.892 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:46.139 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yes. That's actually very, very good.", "language": "en",
+"transcript_delay": 0.5087258815765381}
+    09:43:47.243 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.10815612226724625, "duration": 1.062, "input":
+"<|im_start|>assistant\ncould you please provide your full name including your last
+name<|im_end|>\n<|im_start|>user\nyeah it's michael jackson<|im_end|>\n<|im_start|>assistant\nthank you michael jackson
+could you please provide your phone number so i can make sure we have the correct contact information for
+you<|im_end|>\n<|im_start|>user\nzero three zero zero seven eight five one seven double
+zero<|im_end|>\n<|im_start|>assistant\nthank you let me read that back to you your phone number is zero three zero zero
+seven eight five one seven zero zero is that correct<|im_end|>\n<|im_start|>user\nyes that's actually very very good"}
+    09:43:47.269 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. That's actually very, very good.
+    09:43:47.273 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yes. That's actually very, very good."}
+    09:43:47.994 DEBUG  livekit.agents     executing tool
                                          {"function": "confirm_phone", "arguments": "{}", "speech_id":
-"speech_07b6f114550b"}
-    08:33:51.631 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_07b6f114550b"}
-    08:33:57.095 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great! Now, could you please tell me
-                                           your dog's current weight in pounds?
-    08:33:57.100 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
+"speech_5a75e24ee2de"}
+    09:43:48.051 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_5a75e24ee2de"}
+    09:43:48.916 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:53.146 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great! Now, could you please tell me
+                                           your dog's current weight in pounds (lbs)?
+    09:43:53.152 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
                                            "transcript": "Great! Now, could you please tell me your dog's current
-                                           weight in pounds?"}
-    08:34:01.644 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "It's around seventy pounds.", "language": "en",
-"transcript_delay": 0.35974621772766113}
-    08:34:04.075 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.6530386805534363, "duration": 2.189, "input":
-"<|im_start|>assistant\nthank you michael could you please provide your phone number<|im_end|>\n<|im_start|>user\num
-it's zero three zero zero seven eight five one seven double zero<|im_end|>\n<|im_start|>assistant\nthank you for that so
-your phone number is zero three zero zero seven eight five one seven zero zero is that
-correct<|im_end|>\n<|im_start|>user\nyes that's correct<|im_end|>\n<|im_start|>assistant\ngreat now could you please
-tell me your dog's current weight in pounds<|im_end|>\n<|im_start|>user\nit's around seventy pounds"}
-    08:34:04.124 INFO   doheny-s….observer [OBSERVER] Captured user turn: It's around seventy pounds.
-    08:34:04.129 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "It's around seventy pounds."}
-    08:34:04.998 DEBUG  livekit.agents     executing tool
-                                         {"function": "record_dog_weight", "arguments": "{\"weight_lbs\":70}",
-"speech_id": "speech_68ca3971c9ef"}
-    08:34:05.019 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_68ca3971c9ef"}
-    08:34:12.954 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great, I have recorded your dog's
-                                           weight as 70.0 pounds, which maps to our large size tier. Is that correct?
-    08:34:12.959 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Great, I have recorded your dog's weight as 70.0 pounds,
-                                           which maps to our large size tier. Is that correct?"}
-    08:34:12.965 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
-    08:34:12.968 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.trigger_evaluation {"total_segments": 18,
+                                           weight in pounds (lbs)?"}
+    09:43:53.159 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
+    09:43:53.164 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.trigger_evaluation {"total_segments": 18,
                                            "new_segments": 6}
-    08:34:12.974 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.evaluate_context {"context_hash":
-                                           "7154daca6b9d7a786d59ff34c44d672f2cf01b2b44f2bc1e5c5be9a90300863a",
-                                           "userdata_summary": "Services: daycare, ServiceFamily: daycare,
-                                           ServicePlan: golden_leash_club", "tool_facts": "{\"frontdesk_selection\":
-                                           {\"service_request\": \"Golden Leash Club Card\", \"service_family\":
-                                           \"daycare\", \"service_plan\": \"golden_leash_club\"}}"}
-    08:34:16.695 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Yeah. Yeah. That's correct. That's correct.", "language":
-"en", "transcript_delay": 0.42209386825561523}
-    08:34:17.374 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.6205000281333923, "duration": 0.548, "input":
-"<|im_start|>assistant\nthank you for that so your phone number is zero three zero zero seven eight five one seven zero
-zero is that correct<|im_end|>\n<|im_start|>user\nyes that's correct<|im_end|>\n<|im_start|>assistant\ngreat now could
-you please tell me your dog's current weight in pounds<|im_end|>\n<|im_start|>user\nit's around seventy
-pounds<|im_end|>\n<|im_start|>assistant\ngreat i have recorded your dog's weight as 700 pounds which maps to our large
-size tier is that correct<|im_end|>\n<|im_start|>user\nyeah yeah that's correct that's correct"}
-    08:34:17.398 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yeah. Yeah. That's correct. That's correct.
-    08:34:17.403 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Yeah. Yeah. That's correct. That's correct."}
-    08:34:18.463 DEBUG  livekit.agents     executing tool
+    09:43:53.171 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.evaluate_context {"context_hash":
+                                           "d8ff1ef926cedc3f31e7655048ef36838254b92a1df1bdec1d16da9b7e8a6399",
+                                           "userdata_summary": "Services: grooming, ServiceFamily: grooming",
+                                           "tool_facts": "{\"frontdesk_selection\": {\"service_request\": \"Basic Bath
+                                           grooming session\", \"service_family\": \"grooming\", \"service_plan\":
+                                           null}}"}
+    09:43:53.930 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:56.602 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yes. Of course.", "language": "en", "transcript_delay":
+0.3758585453033447}
+    09:43:58.926 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:43:59.256 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Uh, it's around fifty five pounds.", "language": "en",
+"transcript_delay": 0.2738044261932373}
+    09:44:00.773 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.41247645020484924, "duration": 1.235, "input":
+"<|im_start|>assistant\nthank you michael jackson could you please provide your phone number so i can make sure we have
+the correct contact information for you<|im_end|>\n<|im_start|>user\nzero three zero zero seven eight five one seven
+double zero<|im_end|>\n<|im_start|>assistant\nthank you let me read that back to you your phone number is zero three
+zero zero seven eight five one seven zero zero is that correct<|im_end|>\n<|im_start|>user\nyes that's actually very
+very good<|im_end|>\n<|im_start|>assistant\ngreat now could you please tell me your dog's current weight in pounds
+lbs<|im_end|>\n<|im_start|>user\nyes of course uh it's around fifty five pounds"}
+    09:44:00.801 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. Of course. Uh, it's around fifty five
+                                           pounds.
+    09:44:00.807 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yes. Of course. Uh, it's around fifty five pounds."}
+    09:44:01.502 DEBUG  livekit.agents     executing tool
+                                         {"function": "record_dog_weight", "arguments": "{\"weight_lbs\":55}",
+"speech_id": "speech_9c8d0b6be14d"}
+    09:44:01.558 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_9c8d0b6be14d"}
+    09:44:02.219 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.7256427001105621}
+    09:44:04.003 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:04.317 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.2832520000003278}
+    09:44:08.941 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:10.594 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great, I have 55.0 pounds, which maps
+                                           to our medium size tier. Is that correct?
+    09:44:10.599 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "Great, I have 55.0 pounds, which maps to our medium size
+                                           tier. Is that correct?"}
+    09:44:13.955 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:14.351 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yes. That is correct.", "language": "en",
+"transcript_delay": 0.42115116119384766}
+    09:44:15.608 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.7972365021705627, "duration": 1.125, "input":
+"<|im_start|>assistant\nthank you let me read that back to you your phone number is zero three zero zero seven eight
+five one seven zero zero is that correct<|im_end|>\n<|im_start|>user\nyes that's actually very very
+good<|im_end|>\n<|im_start|>assistant\ngreat now could you please tell me your dog's current weight in pounds
+lbs<|im_end|>\n<|im_start|>user\nyes of course uh it's around fifty five pounds<|im_end|>\n<|im_start|>assistant\ngreat
+i have 550 pounds which maps to our medium size tier is that correct<|im_end|>\n<|im_start|>user\nyes that is correct"}
+    09:44:15.633 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. That is correct.
+    09:44:15.637 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yes. That is correct."}
+    09:44:16.347 DEBUG  livekit.agents     executing tool
                                          {"function": "confirm_dog_weight", "arguments": "{}", "speech_id":
-"speech_26b73d1f396b"}
-    08:34:18.523 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_26b73d1f396b"}
-    08:34:27.607 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Your details have been recorded. I'm
+"speech_e92a37733697"}
+    09:44:16.403 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_e92a37733697"}
+    09:44:18.965 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:23.984 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:25.738 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Your details have been recorded. I'm
                                            now transferring your call to our Scheduling Department to check
                                            availability. Kindly wait a moment while I connect you.
-    08:34:27.613 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
+    09:44:25.745 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
                                            "transcript": "Your details have been recorded. I'm now transferring your
                                            call to our Scheduling Department to check availability. Kindly wait a
                                            moment while I connect you."}
-    08:34:27.625 INFO   doheny-s…sk.intake [TRACE][hh-46562f5b5f] intake.complete_handoff {"from_agent":
+    09:44:25.755 INFO   doheny-s…sk.intake [TRACE][hh-333f6a3676] intake.complete_handoff {"from_agent":
                                            "IntakeAgent", "to_agent": "SchedulerAgent", "changes": {"dog_size":
-                                           {"before": null, "after": "large"}, "dog_weight_lbs": {"before": null,
-                                           "after": 70.0}, "name": {"before": null, "after": "Michael Jackson"},
-                                           "phone": {"before": null, "after": "0300-7851700"}}}
-    08:34:27.644 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] scheduler.on_enter {"pending_action":
-                                           "scheduler_on_enter", "summary": "Customer: Michael Jackson | Phone:
-                                           0300-7851700 | Dog Weight: 70.0 lbs | Dog Size: large | Services: daycare |
-                                           Service Family: daycare | Service Plan: golden_leash_club"}
-    08:34:37.112 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Would you like to proceed with a
-                                           specific date and time for starting your Golden Leash Club Card, or do you
-                                           have any other questions for me?
-    08:34:37.117 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Would you like to proceed with a specific date and time for
-                                           starting your Golden Leash Club Card, or do you have any other questions
-                                           for me?"}
-    08:34:45.721 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "What availability do you have", "language": "en",
-"transcript_delay": 0.5448706150054932}
-    08:34:46.417 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "tomorrow?", "language": "en", "transcript_delay":
-0.34003329277038574}
-    08:34:47.275 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.4322117567062378, "duration": 0.648, "input":
+                                           {"before": null, "after": "medium"}, "dog_weight_lbs": {"before": null,
+                                           "after": 55.0}, "name": {"before": null, "after": "Michael Jackson"},
+                                           "phone": {"before": null, "after": "0300 785 1700"}}}
+    09:44:25.779 INFO   doheny-s…scheduler [TRACE][hh-333f6a3676] scheduler.on_enter {"pending_action":
+                                           "scheduler_on_enter", "summary": "Customer: Michael Jackson | Phone: 0300
+                                           785 1700 | Dog Weight: 55.0 lbs | Dog Size: medium | Services: grooming |
+                                           Service Family: grooming"}
+    09:44:28.982 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:33.985 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:36.252 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: To schedule a grooming session, I need
+                                           to know which date you'd like to come in, and what time would work best for
+                                           you. Could you please let me know?
+    09:44:36.258 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "To schedule a grooming session, I need to know which date
+                                           you'd like to come in, and what time would work best for you. Could you
+                                           please let me know?"}
+    09:44:38.988 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:41.481 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yes. Of course.", "language": "en", "transcript_delay":
+0.30212831497192383}
+    09:44:43.994 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:45.435 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "I want to start tomorrow.", "language": "en",
+"transcript_delay": 0.45847511291503906}
+    09:44:47.135 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "At", "language": "en", "transcript_delay":
+0.3592872619628906}
+    09:44:49.002 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:49.282 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "three PM.", "language": "en", "transcript_delay":
+0.5108966827392578}
+    09:44:51.698 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.3322647213935852, "duration": 1.248, "input":
 "<|im_start|>assistant\ngreat i'm now transferring your call to our intake department to collect your details kindly
 wait a moment while i connect you hi this is the intake department at happy hound i'll collect a few quick details to
-get your booking started history summary michael jackson provided his phone number as 0300-785-1700 he confirmed that
-his dog's weight is around 70 pounds classifying the dog in the large size tier your details have been recorded i'm now
-transferring your call to our scheduling department to check availability kindly wait a moment while i connect you would
-you like to proceed with a specific date and time for starting your golden leash club card or do you have any other
-questions for me<|im_end|>\n<|im_start|>user\nwhat availability do you have tomorrow"}
-    08:34:47.308 INFO   doheny-s….observer [OBSERVER] Captured user turn: What availability do you have tomorrow?
-    08:34:47.313 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "What availability do you have tomorrow?"}
-    08:34:48.390 DEBUG  livekit.agents     executing tool
+get your booking started history summary michael jackson provided his contact information confirming his phone number
+and verifying the weight of his dog which is 55 pounds this places the dog in the medium size tier no further tasks are
+pending your details have been recorded i'm now transferring your call to our scheduling department to check
+availability kindly wait a moment while i connect you to schedule a grooming session i need to know which date you'd
+like to come in and what time would work best for you could you please let me know<|im_end|>\n<|im_start|>user\nyes of
+course i want to start tomorrow at three pm"}
+    09:44:51.781 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. Of course. I want to start tomorrow. At
+                                           three PM.
+    09:44:51.789 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yes. Of course. I want to start tomorrow. At three PM."}
+    09:44:51.802 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
+    09:44:51.811 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.trigger_evaluation {"total_segments": 24,
+                                           "new_segments": 6}
+    09:44:51.819 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.evaluate_context {"context_hash":
+                                           "c66c87a58719ec3a0a8a2c192c8ec4d14320ac0405150f6679fdb1511b6d457b",
+                                           "userdata_summary": "Name: Michael Jackson, Phone: 0300 785 1700,
+                                           DogWeightLbs: 55.0, DogSize: medium, Services: grooming, ServiceFamily:
+                                           grooming", "tool_facts": "{\"frontdesk_selection\": {\"service_request\":
+                                           \"Basic Bath grooming session\", \"service_family\": \"grooming\",
+                                           \"service_plan\": null}, \"intake_profile\": {\"name\": \"Michael
+                                           Jackson\", \"phone\": \"0300 785 1700\", \"dog_weight_lbs\": 55.0,
+                                           \"dog_size\": \"medium\"}}"}
+    09:44:52.890 DEBUG  livekit.agents     executing tool
                                          {"function": "check_availability", "arguments":
-"{\"date\":\"2026-03-20\",\"service\":null,\"service_plan\":\"Golden Leash Club Card\",\"time_preference\":null}",
-"speech_id": "speech_fd8e049a6d09"}
-    08:34:48.397 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] tool.check_availability.call {"service": null,
-                                           "service_plan": "Golden Leash Club Card", "date": "2026-03-20",
-                                           "time_preference": null}
-    08:34:52.673 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Sure. I'm checking availability now.
+"{\"date\":\"2026-03-25\",\"service\":\"Basic Bath\",\"service_plan\":null,\"time_preference\":\"3:00 PM\"}",
+"speech_id": "speech_491ca48da4a2"}
+    09:44:52.898 INFO   doheny-s…scheduler [TRACE][hh-333f6a3676] tool.check_availability.call {"service": "Basic
+                                           Bath", "service_plan": null, "date": "2026-03-25", "time_preference": "3:00
+                                           PM"}
+    09:44:54.034 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:44:57.890 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Sure. I'm checking availability now.
                                            Kindly wait a moment.
-    08:34:52.677 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
+    09:44:57.894 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
                                            "transcript": "Sure. I'm checking availability now. Kindly wait a moment."}
-    08:34:52.687 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] tool.check_availability.state_diff {"changes":
-                                           {"requested_date": {"before": null, "after": "2026-03-20"},
-                                           "requested_time": {"before": null, "after": "anytime"}}}
-    08:34:52.694 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_fd8e049a6d09"}
-    08:35:02.184 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.4276108000259846}
-    08:35:02.265 WARNI… livekit            AudioMixer: stream <async_generator object
-                                           BackgroundAudioPlayer._play_task.<locals>._gen_wrapper at
-                                           0x0000022D47EAC040> timeout, ignoring
-    08:35:02.911 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 1.0726123000043444}
-    08:35:04.943 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: For tomorrow, we have availability at
-                                           seven AM, eight AM, and nine AM. Which time would you like to book, or do
-                                           you need more details about any specific slot?
-    08:35:04.971 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "For tomorrow, we have availability at seven AM, eight AM,
-                                           and nine AM. Which time would you like to book, or do you need more details
-                                           about any specific slot?"}
-    08:35:05.006 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
-    08:35:05.049 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.trigger_evaluation {"total_segments": 24,
-                                           "new_segments": 6}
-    08:35:05.098 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.evaluate_context {"context_hash":
-                                           "d5791aad3d20408dbcfedae72a5e3e018d5b38a0839d18b958dbf94e1062443c",
-                                           "userdata_summary": "Name: Michael Jackson, Phone: 0300-7851700,
-                                           DogWeightLbs: 70.0, DogSize: large, Services: daycare, ServiceFamily:
-                                           daycare, ServicePlan: golden_leash_club, RequestedDate: 2026-03-20,
-                                           RequestedTime: anytime", "tool_facts": "{\"frontdesk_selection\":
-                                           {\"service_request\": \"Golden Leash Club Card\", \"service_family\":
-                                           \"daycare\", \"service_plan\": \"golden_leash_club\"}, \"intake_profile\":
-                                           {\"name\": \"Michael Jackson\", \"phone\": \"0300-7851700\",
-                                           \"dog_weight_lbs\": 70.0, \"dog_size\": \"large\"}, \"availability\":
-                                           {\"service_family\": \"daycare\", \"service_plan\": \"golden_leash_club\",
-                                           \"service_label\": \"Golden Leash Club Card\", \"date\": \"2026-03-20\",
-                                           \"time_preference\": \"anytime\", \"times\": [\"07:00\", \"08:00\",
-                                           \"09:00\"]}, \"last_availability_signature\":
-                                           \"daycare|golden_leash_club|2026-03-20|anytime|large\",
-                                           \"last_availability_response\": \"AVAILABLE_TIMES for Golden Leash Club
-                                           Card on 2026-03-20: 07:00, 08:00, 09:00\\n\\nIMPORTANT: Tell user only the
-                                           available times and ask which one they prefer, or whether they want details
-                                           for a specific time.\"}"}
-    08:35:05.183 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.2745009000264108}
-    08:35:13.774 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "What do you mean by details? Give me more details about
-this nine AM slot.", "language": "en", "transcript_delay": 0.39808201789855957}
-    08:35:14.569 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.6369861960411072, "duration": 0.642, "input":
+    09:44:57.903 WARNI… doheny-s…scheduler gingr.check_availability failed: GINGR_API_KEY is not set
+    09:44:57.910 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_491ca48da4a2"}
+    09:44:59.034 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:02.233 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.4425531000662595}
+    09:45:04.037 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:09.035 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:14.056 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:17.140 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: I'm really sorry, but it looks like
+                                           we're having some technical issues reaching our scheduling system right
+                                           now. I can't check the grooming availability for you at the moment. Would
+                                           you like me to arrange a callback so a team member can assist you as soon
+                                           as possible?
+    09:45:17.147 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "I'm really sorry, but it looks like we're having some
+                                           technical issues reaching our scheduling system right now. I can't check
+                                           the grooming availability for you at the moment. Would you like me to
+                                           arrange a callback so a team member can assist you as soon as possible?"}
+    09:45:19.056 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:21.687 DEBUG  livekit.agents     received user transcript
+                                         {"user_transcript": "Yeah. Yeah. Do that. Do that. Do that. Yeah.", "language":
+"en", "transcript_delay": 0.5582337379455566}
+    09:45:22.922 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.0685916393995285, "duration": 1.219, "input":
 "<|im_start|>assistant\nyour details have been recorded i'm now transferring your call to our scheduling department to
-check availability kindly wait a moment while i connect you would you like to proceed with a specific date and time for
-starting your golden leash club card or do you have any other questions for me<|im_end|>\n<|im_start|>user\nwhat
-availability do you have tomorrow<|im_end|>\n<|im_start|>assistant\nsure i'm checking availability now kindly wait a
-moment for tomorrow we have availability at seven am eight am and nine am which time would you like to book or do you
-need more details about any specific slot<|im_end|>\n<|im_start|>user\nwhat do you mean by details give me more details
-about this nine am slot"}
-    08:35:14.605 INFO   doheny-s….observer [OBSERVER] Captured user turn: What do you mean by details? Give me more
-                                           details about this nine AM slot.
-    08:35:14.612 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "What do you mean by details? Give me more details about this nine AM
-                                           slot."}
-    08:35:15.991 DEBUG  livekit.agents     executing tool
-                                         {"function": "get_slot_details", "arguments":
-"{\"date\":\"2026-03-20\",\"service\":null,\"service_plan\":\"Golden Leash Club Card\",\"time\":\"09:00\"}",
-"speech_id": "speech_4738249ed786"}
-    08:35:15.998 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] tool.get_slot_details.call {"time": "09:00",
-                                           "service": null, "service_plan": "Golden Leash Club Card", "date":
-                                           "2026-03-20"}
-    08:35:16.006 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_4738249ed786"}
-    08:35:31.446 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: The nine AM slot for tomorrow is
-                                           available with Alex. The Golden Leash Club Card covers all-day care, and
-                                           it's a monthly unlimited daycare plan for seven hundred seventy-five
-                                           dollars with a six-month commitment. Would you like to book this slot?
-    08:35:31.453 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "The nine AM slot for tomorrow is available with Alex. The
-                                           Golden Leash Club Card covers all-day care, and it's a monthly unlimited
-                                           daycare plan for seven hundred seventy-five dollars with a six-month
-                                           commitment. Would you like to book this slot?"}
-    08:35:37.722 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Yeah. Yeah. I I would like to book this slot.",
-"language": "en", "transcript_delay": 0.29800891876220703}
-    08:35:38.611 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.3485490381717682, "duration": 0.632, "input":
-"<|im_start|>user\nwhat availability do you have tomorrow<|im_end|>\n<|im_start|>assistant\nsure i'm checking
-availability now kindly wait a moment for tomorrow we have availability at seven am eight am and nine am which time
-would you like to book or do you need more details about any specific slot<|im_end|>\n<|im_start|>user\nwhat do you mean
-by details give me more details about this nine am slot<|im_end|>\n<|im_start|>assistant\nthe nine am slot for tomorrow
-is available with alex the golden leash club card covers all-day care and it's a monthly unlimited daycare plan for
-seven hundred seventy-five dollars with a six-month commitment would you like to book this
-slot<|im_end|>\n<|im_start|>user\nyeah yeah i i would like to book this slot"}
-    08:35:38.644 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yeah. Yeah. I I would like to book this
-                                           slot.
-    08:35:38.649 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Yeah. Yeah. I I would like to book this slot."}
-    08:35:39.854 DEBUG  livekit.agents     executing tool
-                                         {"function": "book_slot", "arguments":
-"{\"date\":\"2026-03-20\",\"service\":null,\"service_plan\":\"Golden Leash Club Card\",\"time\":\"09:00\"}",
-"speech_id": "speech_bcae42433433"}
-    08:35:39.860 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] tool.book_slot.call {"date": "2026-03-20", "time":
-                                           "09:00", "service": null, "service_plan": "Golden Leash Club Card"}
-    08:35:44.222 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great. I'm confirming that booking now.
-                                           Kindly wait a moment.
-    08:35:44.228 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Great. I'm confirming that booking now. Kindly wait a
-                                           moment."}
-    08:35:44.237 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] tool.book_slot.state_diff {"changes": {"booking_id":
-                                           {"before": null, "after": "HH-34CF38B1"}, "handoff_status": {"before":
-                                           null, "after": "pending"}, "quote_notes": {"before": null, "after": "Golden
-                                           Leash Club Card with Alex at 09:00 (all day). Unlimited daycare plan with
-                                           6-month commitment."}, "quoted_subtotal": {"before": null, "after": 775.0},
-                                           "quoted_tax": {"before": null, "after": 0.0}, "quoted_total": {"before":
-                                           null, "after": 775.0}, "requested_time": {"before": "anytime", "after":
-                                           "09:00"}}}
-    08:35:44.248 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_bcae42433433"}
-    08:35:54.123 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Your booking is confirmed for the
-                                           Golden Leash Club Card with Alex starting at nine AM tomorrow. Are you
-                                           ready to finalize this request with our billing department?
-    08:35:54.128 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Your booking is confirmed for the Golden Leash Club Card
-                                           with Alex starting at nine AM tomorrow. Are you ready to finalize this
-                                           request with our billing department?"}
-    08:35:58.074 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Yes. I am ready.", "language": "en", "transcript_delay":
-0.4010035991668701}
-    08:35:59.270 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Do it.", "language": "en", "transcript_delay":
-0.5927984714508057}
-    08:36:00.754 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.1883910447359085, "duration": 0.844, "input":
-"<|im_start|>user\nwhat do you mean by details give me more details about this nine am
-slot<|im_end|>\n<|im_start|>assistant\nthe nine am slot for tomorrow is available with alex the golden leash club card
-covers all-day care and it's a monthly unlimited daycare plan for seven hundred seventy-five dollars with a six-month
-commitment would you like to book this slot<|im_end|>\n<|im_start|>user\nyeah yeah i i would like to book this
-slot<|im_end|>\n<|im_start|>assistant\ngreat i'm confirming that booking now kindly wait a moment your booking is
-confirmed for the golden leash club card with alex starting at nine am tomorrow are you ready to finalize this request
-with our billing department<|im_end|>\n<|im_start|>user\nyes i am ready do it"}
-    08:36:00.788 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. I am ready. Do it.
-    08:36:00.791 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Yes. I am ready. Do it."}
-    08:36:00.798 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
-    08:36:00.801 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.trigger_evaluation {"total_segments": 30,
-                                           "new_segments": 6}
-    08:36:00.808 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.evaluate_context {"context_hash":
-                                           "e0feff8f224ebbcd54e1893707f7fca7c5c6e2a4b98d3f64a4fbe9d58ed6293d",
-                                           "userdata_summary": "Name: Michael Jackson, Phone: 0300-7851700,
-                                           DogWeightLbs: 70.0, DogSize: large, Services: daycare, ServiceFamily:
-                                           daycare, ServicePlan: golden_leash_club, RequestedDate: 2026-03-20,
-                                           RequestedTime: 09:00, QuotedTotal: 775.0", "tool_facts":
-                                           "{\"frontdesk_selection\": {\"service_request\": \"Golden Leash Club
-                                           Card\", \"service_family\": \"daycare\", \"service_plan\":
-                                           \"golden_leash_club\"}, \"intake_profile\": {\"name\": \"Michael Jackson\",
-                                           \"phone\": \"0300-7851700\", \"dog_weight_lbs\": 70.0, \"dog_size\":
-                                           \"large\"}, \"availability\": {\"service_family\": \"daycare\",
-                                           \"service_plan\": \"golden_leash_club\", \"service_label\": \"Golden Leash
-                                           Club Card\", \"date\": \"2026-03-20\", \"time_preference\": \"anytime\",
-                                           \"times\": [\"07:00\", \"08:00\", \"09:00\"]},
-                                           \"last_availability_signature\":
-                                           \"daycare|golden_leash_club|2026-03-20|anytime|large\",
-                                           \"last_availability_response\": \"AVAILABLE_TIMES for Golden Leash Club
-                                           Card on 2026-03-20: 07:00, 08:00, 09:00\\n\\nIMPORTANT: Tell user only the
-                                           available times and ask which one they prefer, or whether they want details
-                                           for a specific time.\", \"slot_details\": {\"service_family\": \"daycare\",
-                                           \"service_plan\": \"golden_leash_club\", \"service_label\": \"Golden Leash
-                                           Club Card\", \"date\": \"2026-03-20\", \"time\": \"09:00\", \"staff\":
-                                           \"Alex\", \"duration\": \"all day\", \"quoted_total\": 775.0,
-                                           \"billing_cycle\": \"monthly\"}, \"booking\": {\"booking_id\":
-                                           \"HH-34CF38B1\", \"service_family\": \"daycare\", \"service_plan\":
-                                           \"golden_leash_club\", \"service_label\": \"Golden Leash Club Card\",
-                                           \"date\": \"2026-03-20\", \"time\": \"09:00\", \"staff\": \"Alex\",
-                                           \"duration\": \"all day\", \"quote\": {\"label\": \"Golden Leash Club
-                                           Card\", \"subtotal\": 775.0, \"tax\": 0.0, \"total\": 775.0,
-                                           \"billing_cycle\": \"monthly\", \"quote_notes\": \"Unlimited daycare plan
-                                           with 6-month commitment.\"}}}"}
-    08:36:01.677 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 0.18733370002079755}
-    08:36:02.344 DEBUG  livekit.agents     executing tool
-                                         {"function": "transfer_to_billing", "arguments": "{}", "speech_id":
-"speech_b48f0bdd945b"}
-    08:36:03.131 INFO   doheny-s…scheduler [TRACE][hh-46562f5b5f] scheduler.transfer_to_billing {"from_agent":
-                                           "SchedulerAgent", "to_agent": "BillingAgent", "summary": "Customer: Michael
-                                           Jackson | Phone: 0300-7851700 | Dog Weight: 70.0 lbs | Dog Size: large |
-                                           Services: daycare | Service Family: daycare | Service Plan:
-                                           golden_leash_club | Requested: 2026-03-20 at 09:00 | Quoted Total: $775.00
-                                           | Handoff: pending", "runtime_tool_facts": {"frontdesk_selection":
-                                           {"service_request": "Golden Leash Club Card", "service_family": "daycare",
-                                           "service_plan": "golden_leash_club"}, "intake_profile": {"name": "Michael
-                                           Jackson", "phone": "0300-7851700", "dog_weight_lbs": 70.0, "dog_size":
-                                           "large"}, "availability": {"service_family": "daycare", "service_plan":
-                                           "golden_leash_club", "service_label": "Golden Leash Club Card", "date":
-                                           "2026-03-20", "time_preference": "anytime", "times": ["07:00", "08:00",
-                                           "09:00"]}, "last_availability_signature":
-                                           "daycare|golden_leash_club|2026-03-20|anytime|large",
-                                           "last_availability_response": "AVAILABLE_TIMES for Golden Leash Club Card
-                                           on 2026-03-20: 07:00, 08:00, 09:00\n\nIMPORTANT: Tell user only the
-                                           available times and ask which one they prefer, or whether they want details
-                                           for a specific time.", "slot_details": {"service_family": "daycare",
-                                           "service_plan": "golden_leash_club", "service_label": "Golden Leash Club
-                                           Card", "date": "2026-03-20", "time": "09:00", "staff": "Alex", "duration":
-                                           "all day", "quoted_total": 775.0, "billing_cycle": "monthly"}, "booking":
-                                           {"booking_id": "HH-34CF38B1", "service_family": "daycare", "service_plan":
-                                           "golden_leash_club", "service_label": "Golden Leash Club Card", "date":
-                                           "2026-03-20", "time": "09:00", "staff": "Alex", "duration": "all day",
-                                           "quote": {"label": "Golden Leash Club Card", "subtotal": 775.0, "tax": 0.0,
-                                           "total": 775.0, "billing_cycle": "monthly", "quote_notes": "Unlimited
-                                           daycare plan with 6-month commitment."}}}}
-    08:36:03.279 WARNI… livekit.…ns.silero inference is slower than realtime {"delay": 1.2273835001145486}
-    08:36:13.847 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Great, your service request and quote
-                                           are ready. I'm now transferring your call to our Billing Department to
-                                           confirm and finalize. Kindly wait a moment while I connect you.
-    08:36:13.852 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Great, your service request and quote are ready. I'm now
-                                           transferring your call to our Billing Department to confirm and finalize.
-                                           Kindly wait a moment while I connect you."}
-    08:36:13.868 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_b48f0bdd945b"}
-    08:36:13.882 INFO   doheny-s…k.billing [TRACE][hh-46562f5b5f] billing.on_enter {"pending_action":
-                                           "billing_on_enter", "quote_basis": {"service_family": "daycare",
-                                           "service_plan": "golden_leash_club", "dog_size": "large"}, "quote":
-                                           {"label": "Golden Leash Club Card", "subtotal": 775.0, "tax": 0.0, "total":
-                                           775.0, "billing_cycle": "monthly", "quote_notes": "Unlimited daycare plan
-                                           with 6-month commitment."}}
-    08:36:26.373 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Hi, this is the Billing Department at
-                                           Happy Hound. You're all set for Golden Leash Club Card. Your total is
-                                           $775.00 (monthly). If that looks good, I can send your full request to our
-                                           team now.
-    08:36:26.379 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Hi, this is the Billing Department at Happy Hound. You're
-                                           all set for Golden Leash Club Card. Your total is $775.00 (monthly). If
-                                           that looks good, I can send your full request to our team now."}
-    08:36:32.394 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Yes. Kindly send my full request to your team now.",
-"language": "en", "transcript_delay": 0.3170011043548584}
-    08:36:33.279 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.5522196888923645, "duration": 0.65, "input":
-"<|im_start|>assistant\ngreat i'm confirming that booking now kindly wait a moment your booking is confirmed for the
-golden leash club card with alex starting at nine am tomorrow are you ready to finalize this request with our billing
-department<|im_end|>\n<|im_start|>user\nyes i am ready do it<|im_end|>\n<|im_start|>assistant\ngreat your service
-request and quote are ready i'm now transferring your call to our billing department to confirm and finalize kindly wait
-a moment while i connect you hi this is the billing department at happy hound you're all set for golden leash club card
-your total is $77500 monthly if that looks good i can send your full request to our team
-now<|im_end|>\n<|im_start|>user\nyes kindly send my full request to your team now"}
-    08:36:33.309 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yes. Kindly send my full request to your
-                                           team now.
-    08:36:33.315 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Yes. Kindly send my full request to your team now."}
-    08:36:34.410 DEBUG  livekit.agents     executing tool
-                                         {"function": "send_structured_handoff", "arguments": "{\"notes\":\"Customer
-approved booking for Golden Leash Club Card at $775 monthly, starting tomorrow at nine AM with Alex.\"}", "speech_id":
-"speech_69696ba8fb2e"}
-    08:36:34.417 INFO   doheny-s…k.billing [TRACE][hh-46562f5b5f] tool.send_structured_handoff.call {"notes":
-                                           "Customer approved booking for Golden Leash Club Card at $775 monthly,
-                                           starting tomorrow at nine AM with Alex."}
-    08:36:39.735 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Understood. I'm sending your request
-                                           details to our team now. Kindly wait a moment.
-    08:36:39.739 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Understood. I'm sending your request details to our team
-                                           now. Kindly wait a moment."}
-    08:36:49.314 INFO   doheny-s…k.billing [TRACE][hh-46562f5b5f] tool.send_structured_handoff.state_diff {"changes":
-                                           {"handoff_status": {"before": "pending", "after": "sent"}, "quote_notes":
-                                           {"before": "Unlimited daycare plan with 6-month commitment.", "after":
-                                           "Unlimited daycare plan with 6-month commitment. | Additional caller note:
-                                           Customer approved booking for Golden Leash Club Card at $775 monthly,
-                                           starting tomorrow at nine AM with Alex."}}}
-    08:36:49.335 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_69696ba8fb2e"}
-    08:37:02.466 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Everything is all set and your request
-                                           has been submitted! Our staff will contact you shortly to finalize any
-                                           details and ensure everything's good to go. If you have any more questions,
-                                           feel free to reach out. Have a wonderful day!
-    08:37:02.483 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "Everything is all set and your request has been submitted!
-                                           Our staff will contact you shortly to finalize any details and ensure
-                                           everything's good to go. If you have any more questions, feel free to reach
-                                           out. Have a wonderful day!"}
-    08:37:07.094 DEBUG  livekit.agents     received user transcript
-                                         {"user_transcript": "Okay. Thanks a lot. See you.", "language": "en",
-"transcript_delay": 0.014989852905273438}
-    08:37:07.991 DEBUG  livekit.agents     received user transcript
+check availability kindly wait a moment while i connect you to schedule a grooming session i need to know which date
+you'd like to come in and what time would work best for you could you please let me
+know<|im_end|>\n<|im_start|>user\nyes of course i want to start tomorrow at three
+pm<|im_end|>\n<|im_start|>assistant\nsure i'm checking availability now kindly wait a moment i'm really sorry but it
+looks like we're having some technical issues reaching our scheduling system right now i can't check the grooming
+availability for you at the moment would you like me to arrange a callback so a team member can assist you as soon as
+possible<|im_end|>\n<|im_start|>user\nyeah yeah do that do that do that yeah"}
+    09:45:22.972 INFO   doheny-s….observer [OBSERVER] Captured user turn: Yeah. Yeah. Do that. Do that. Do that. Yeah.
+    09:45:22.978 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Yeah. Yeah. Do that. Do that. Do that. Yeah."}
+    09:45:23.994 DEBUG  livekit.agents     executing tool
+                                         {"function": "mark_handoff_pending", "arguments": "{\"reason\":\"Unable to
+check grooming availability due to technical issues; arrange callback.\"}", "speech_id": "speech_e41eef5af1f5"}
+    09:45:24.004 INFO   doheny-s…scheduler [TRACE][hh-333f6a3676] tool.mark_handoff_pending {"reason": "Unable to
+                                           check grooming availability due to technical issues; arrange callback."}
+    09:45:24.013 DEBUG  livekit.agents     tools execution completed {"speech_id": "speech_e41eef5af1f5"}
+    09:45:24.111 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:29.066 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:34.078 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:37.456 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: I've marked your request, and a team
+                                           member will call you back to help finalize your grooming appointment. No
+                                           problem at all, and you can continue anytime you're ready. Thank you for
+                                           your patience!
+    09:45:37.463 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "I've marked your request, and a team member will call you
+                                           back to help finalize your grooming appointment. No problem at all, and you
+                                           can continue anytime you're ready. Thank you for your patience!"}
+    09:45:39.094 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:41.981 DEBUG  livekit.agents     received user transcript
                                          {"user_transcript": "Bye bye.", "language": "en", "transcript_delay":
-0.41864824295043945}
-    08:37:08.767 DEBUG  livekit.…_detector eou prediction
-                                           {"eou_probability": 0.8088680505752563, "duration": 0.638, "input":
-"<|im_start|>assistant\ngreat your service request and quote are ready i'm now transferring your call to our billing
-department to confirm and finalize kindly wait a moment while i connect you hi this is the billing department at happy
-hound you're all set for golden leash club card your total is $77500 monthly if that looks good i can send your full
-request to our team now<|im_end|>\n<|im_start|>user\nyes kindly send my full request to your team
-now<|im_end|>\n<|im_start|>assistant\nunderstood i'm sending your request details to our team now kindly wait a moment
-everything is all set and your request has been submitted our staff will contact you shortly to finalize any details and
-ensure everything's good to go if you have any more questions feel free to reach out have a wonderful
-day<|im_end|>\n<|im_start|>user\nokay thanks a lot see you bye bye"}
-    08:37:08.798 INFO   doheny-s….observer [OBSERVER] Captured user turn: Okay. Thanks a lot. See you. Bye bye.
-    08:37:08.805 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "user", "transcript":
-                                           "Okay. Thanks a lot. See you. Bye bye."}
-    08:37:08.808 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
-    08:37:08.811 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.trigger_evaluation {"total_segments": 36,
+0.6489629745483398}
+    09:45:43.228 DEBUG  livekit.…_detector eou prediction
+                                           {"eou_probability": 0.7984226942062378, "duration": 1.223, "input":
+"<|im_start|>user\nyes of course i want to start tomorrow at three pm<|im_end|>\n<|im_start|>assistant\nsure i'm
+checking availability now kindly wait a moment i'm really sorry but it looks like we're having some technical issues
+reaching our scheduling system right now i can't check the grooming availability for you at the moment would you like me
+to arrange a callback so a team member can assist you as soon as possible<|im_end|>\n<|im_start|>user\nyeah yeah do that
+do that do that yeah<|im_end|>\n<|im_start|>assistant\ni've marked your request and a team member will call you back to
+help finalize your grooming appointment no problem at all and you can continue anytime you're ready thank you for your
+patience<|im_end|>\n<|im_start|>user\nbye bye"}
+    09:45:43.334 INFO   doheny-s….observer [OBSERVER] Captured user turn: Bye bye.
+    09:45:43.399 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "user", "transcript":
+                                           "Bye bye."}
+    09:45:44.092 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached
+    09:45:48.851 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: Take care, and thanks for choosing
+                                           Happy Hound! Bye for now!
+    09:45:48.872 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.capture_turn {"role": "assistant",
+                                           "transcript": "Take care, and thanks for choosing Happy Hound! Bye for
+                                           now!"}
+    09:45:48.881 INFO   doheny-s….observer [OBSERVER] Triggering evaluation (6 segments)
+    09:45:48.890 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.trigger_evaluation {"total_segments": 30,
                                            "new_segments": 6}
-    08:37:08.817 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.evaluate_context {"context_hash":
-                                           "14f2bed07432269ea78d23a9f79b556e9fa2f7a95f574691a2c92e5c2c921dc9",
-                                           "userdata_summary": "Name: Michael Jackson, Phone: 0300-7851700,
-                                           DogWeightLbs: 70.0, DogSize: large, Services: daycare, ServiceFamily:
-                                           daycare, ServicePlan: golden_leash_club, RequestedDate: 2026-03-20,
-                                           RequestedTime: 09:00, QuotedTotal: 775.0", "tool_facts":
-                                           "{\"frontdesk_selection\": {\"service_request\": \"Golden Leash Club
-                                           Card\", \"service_family\": \"daycare\", \"service_plan\":
-                                           \"golden_leash_club\"}, \"intake_profile\": {\"name\": \"Michael Jackson\",
-                                           \"phone\": \"0300-7851700\", \"dog_weight_lbs\": 70.0, \"dog_size\":
-                                           \"large\"}, \"availability\": {\"service_family\": \"daycare\",
-                                           \"service_plan\": \"golden_leash_club\", \"service_label\": \"Golden Leash
-                                           Club Card\", \"date\": \"2026-03-20\", \"time_preference\": \"anytime\",
-                                           \"times\": [\"07:00\", \"08:00\", \"09:00\"]},
-                                           \"last_availability_signature\":
-                                           \"daycare|golden_leash_club|2026-03-20|anytime|large\",
-                                           \"last_availability_response\": \"AVAILABLE_TIMES for Golden Leash Club
-                                           Card on 2026-03-20: 07:00, 08:00, 09:00\\n\\nIMPORTANT: Tell user only the
-                                           available times and ask which one they prefer, or whether they want details
-                                           for a specific time.\", \"slot_details\": {\"service_family\": \"daycare\",
-                                           \"service_plan\": \"golden_leash_club\", \"service_label\": \"Golden Leash
-                                           Club Card\", \"date\": \"2026-03-20\", \"time\": \"09:00\", \"staff\":
-                                           \"Alex\", \"duration\": \"all day\", \"quoted_total\": 775.0,
-                                           \"billing_cycle\": \"monthly\"}, \"booking\": {\"booking_id\":
-                                           \"HH-34CF38B1\", \"service_family\": \"daycare\", \"service_plan\":
-                                           \"golden_leash_club\", \"service_label\": \"Golden Leash Club Card\",
-                                           \"date\": \"2026-03-20\", \"time\": \"09:00\", \"staff\": \"Alex\",
-                                           \"duration\": \"all day\", \"quote\": {\"label\": \"Golden Leash Club
-                                           Card\", \"subtotal\": 775.0, \"tax\": 0.0, \"total\": 775.0,
-                                           \"billing_cycle\": \"monthly\", \"quote_notes\": \"Unlimited daycare plan
-                                           with 6-month commitment.\"}}, \"quote_basis\": {\"service_family\":
-                                           \"daycare\", \"service_plan\": \"golden_leash_club\", \"dog_size\":
-                                           \"large\"}, \"active_quote\": {\"label\": \"Golden Leash Club Card\",
-                                           \"subtotal\": 775.0, \"tax\": 0.0, \"total\": 775.0, \"billing_cycle\":
-                                           \"monthly\", \"quote_notes\": \"Unlimited daycare plan with 6-month
-                                           commitment.\"}, \"handoff_email\": {\"message_id\":
-                                           \"<177389139974.3424.11558551487473842749@WSAMZN-ORMM5V4I.corp.amazonworks…
-                                           \"subject\": \"Happy Hound Handoff - HH-34CF38B1\"}}"}
-    08:37:13.471 INFO   doheny-s….observer [OBSERVER] Captured assistant turn: You're welcome! Take care and see you
-                                           soon. Bye!
-    08:37:13.475 INFO   doheny-s….observer [TRACE][hh-46562f5b5f] observer.capture_turn {"role": "assistant",
-                                           "transcript": "You're welcome! Take care and see you soon. Bye!"}
-    08:37:17.213 INFO   livekit.agents     closing agent session due to participant disconnect (disable via
-                                           `RoomInputOptions.close_on_disconnect=False`)
-                                         {"room": "playground-ZjEB-h7Rk", "participant": "identity-f8n1", "reason":
-"CLIENT_INITIATED"}
-    08:37:17.223 DEBUG  livekit.agents     stream closed
-                                         {"participant": "identity-f8n1", "source": "SOURCE_MICROPHONE"}
-    08:37:17.230 DEBUG  livekit.agents     input stream detached
-                                         {"participant": "identity-f8n1", "source": "SOURCE_UNKNOWN",
-"accepted_sources": ["SOURCE_MICROPHONE"]}
-    08:37:19.225 DEBUG  livekit.agents     session closed {"reason": "participant_disconnected", "error": null}
-    08:37:37.842 DEBUG  livekit.agents     shutting down job task {"reason": "", "user_initiated": false}
-    08:37:37.849 DEBUG  livekit.agents     job exiting
-                                         {"reason": "", "tid": 3388, "job_id": "AJ_UAEgiJHzNz7N", "room_id":
-"RM_6CfVck8vS5Vv"}
-    08:37:37.855 DEBUG  livekit.agents     http_session(): closing the httpclient ctx
-    08:37:47.604 INFO   livekit.agents     shutting down worker {"id": "AW_NUP2CxpNg6mV"}
-    08:37:47.610 INFO   livekit.agents     process exiting {"reason": "", "pid": 6564, "inference": true}
-    08:37:47.885 WARNI… livekit.agents     exiting forcefully
-^C
-D:\others by Ans\test\3rd\voice_agent>
-
-D:\others by Ans\test\3rd\voice_agent>
+    09:45:48.905 INFO   doheny-s….observer [TRACE][hh-333f6a3676] observer.evaluate_context {"context_hash":
+                                           "84aad35a5489477660a385d9d801e4ce804a1ed4009af238a90000654e252251",
+                                           "userdata_summary": "Name: Michael Jackson, Phone: 0300 785 1700,
+                                           DogWeightLbs: 55.0, DogSize: medium, Services: grooming, ServiceFamily:
+                                           grooming", "tool_facts": "{\"frontdesk_selection\": {\"service_request\":
+                                           \"Basic Bath grooming session\", \"service_family\": \"grooming\",
+                                           \"service_plan\": null}, \"intake_profile\": {\"name\": \"Michael
+                                           Jackson\", \"phone\": \"0300 785 1700\", \"dog_weight_lbs\": 55.0,
+                                           \"dog_size\": \"medium\"}, \"last_availability_signature\":
+                                           \"grooming||2026-03-25|3:00 pm|medium\", \"last_availability_response\":
+                                           \"GROOMING_CHECK_ERROR: Could not reach the scheduling system
+                                           (GINGR_API_KEY is not set). Tell the caller you are unable to check
+                                           grooming availability right now and offer to have a team member call
+                                           back.\"}"}
+    09:45:49.101 INFO   root               ignoring byte stream with topic 'lk.agent.session', no callback attached

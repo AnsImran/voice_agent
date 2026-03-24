@@ -970,16 +970,25 @@ def fetch_reservations_for_day_from_api(
     This is the authoritative live-data source used by the checker.
     """
 
+    # Read env vars at call time (not at import time) so that load_dotenv()
+    # called after module import — or in a subprocess worker — is respected.
+    api_key = os.environ.get("GINGR_API_KEY", "").strip().strip('"').strip("'")
+    tenant = os.environ.get("GINGR_TENANT", "happyhound").strip().strip('"').strip("'")
+    api_base = os.environ.get(
+        "GINGR_API_BASE",
+        f"https://{tenant}.gingrapp.com/api/v1",
+    ).strip().strip('"').strip("'")
+
     # Refuse to continue if the API key is missing.
-    if not GINGR_API_KEY:
+    if not api_key:
         raise RuntimeError("GINGR_API_KEY is not set")
 
     # Build the full reservations endpoint URL.
-    url = f"{GINGR_API_BASE.rstrip('/')}/reservations"
+    url = f"{api_base.rstrip('/')}/reservations"
 
     # Prepare the form-encoded POST body expected by this Gingr endpoint.
     body = {
-        "key": GINGR_API_KEY,
+        "key": api_key,
         "checked_in": "false",
         "start_date": target_day.isoformat(),
         "end_date": target_day.isoformat(),
@@ -1149,7 +1158,7 @@ def determine_service_availability(
     requested_start_hhmm: str,
     requested_service: Optional[str] = None,
     explicit_duration: Optional[int] = None,
-    location_id: str = GINGR_LOCATION_ID,
+    location_id: Optional[str] = None,
     staffing_rules: Optional[Dict[int, List[Tuple[str, str, int]]]] = None,
     lookahead_days: int = DEFAULT_LOOKAHEAD_DAYS,
     step_minutes: int = DEFAULT_STEP_MINUTES,
@@ -1174,6 +1183,11 @@ def determine_service_availability(
 
     # If no staffing rules were provided, use the defaults.
     staffing_rules = staffing_rules or DEFAULT_STAFFING_RULES
+
+    # Resolve location_id at call time so subprocess workers with freshly
+    # loaded env vars are not stuck with the import-time empty default.
+    if location_id is None:
+        location_id = os.environ.get("GINGR_LOCATION_ID", "1").strip().strip('"').strip("'")
 
     # If the request does NOT require grooming logic, short-circuit to available.
     if not request_requires_grooming_logic(category, requested_service):
