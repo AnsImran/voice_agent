@@ -14,6 +14,7 @@ dependencies = [
     "pytest-asyncio>=1.2.0",
     "python-dotenv",
     "pyyaml",
+    "requests",
 ]
 
 [project.optional-dependencies]

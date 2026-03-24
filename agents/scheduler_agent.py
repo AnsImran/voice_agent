@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 
 from livekit.agents.llm import function_tool
 
@@ -14,6 +15,7 @@ from tools.availability_provider import (
     get_service_display_label,
     resolve_service_selection,
 )
+from tools.gingr_availability import determine_service_availability, service_name_looks_grooming
 from tools.handoff_email_tools import build_handoff_payload, send_handoff_email
 from utils import (
     ensure_session_trace_id,
@@ -30,6 +32,49 @@ logger = logging.getLogger("doheny-surf-desk.scheduler")
 
 def _normalize_time_token(value: str) -> str:
     return value.replace(" ", "").lower()
+
+
+_VAGUE_TIME_WORDS = {"morning", "afternoon", "evening", "anytime", "any", "any time", "flexible", ""}
+
+
+def _format_slot_datetime(iso_str: str) -> str:
+    """Convert a Gingr ISO datetime to a voice-friendly string.
+
+    '2026-03-25T11:30' -> '11:30 AM on Tuesday March 25'
+    '2026-03-25T09:00' -> '9:00 AM on Tuesday March 25'
+    """
+    from datetime import datetime as _dt
+    dt = _dt.fromisoformat(iso_str)
+    hour = dt.hour % 12 or 12
+    minute = dt.minute
+    ampm = "AM" if dt.hour < 12 else "PM"
+    time_part = f"{hour}:{minute:02d} {ampm}"
+    date_part = dt.strftime("%A %B ") + str(dt.day)
+    return f"{time_part} on {date_part}"
+
+
+def _parse_time_to_hhmm(value: str) -> str | None:
+    """Convert a caller time expression to HH:MM, or None if vague/unrecognised.
+
+    Examples: "9am" → "09:00", "2:30pm" → "14:30", "14:00" → "14:00",
+              "morning" → None, "anytime" → None.
+    """
+    val = (value or "").strip().lower()
+    if val in _VAGUE_TIME_WORDS:
+        return None
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm))?$", val.replace(" ", ""))
+    if not m:
+        return None
+    hour = int(m.group(1))
+    minute = int(m.group(2)) if m.group(2) else 0
+    suffix = m.group(3)
+    if suffix == "pm" and hour != 12:
+        hour += 12
+    elif suffix == "am" and hour == 12:
+        hour = 0
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return f"{hour:02d}:{minute:02d}"
 
 
 class SchedulerAgent(BaseAgent):
@@ -181,7 +226,7 @@ class SchedulerAgent(BaseAgent):
         date: str | None = None,
         time_preference: str | None = None,
         ) -> str:
-        """Check service availability and return only a concise list of times."""
+        """Check service availability. For grooming, validates a specific requested time via the Gingr API."""
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
         before = userdata_snapshot(userdata)
@@ -240,6 +285,150 @@ class SchedulerAgent(BaseAgent):
                 "Sure. I'm checking availability now. Kindly wait a moment."
             )
 
+            # --- Grooming path: real Gingr check ---
+            # Triggered when:
+            #   (a) the resolved service family is grooming, OR
+            #   (b) the raw service string is a grooming add-on on a boarding/daycare/training
+            #       visit (e.g. "Boarding + Deluxe Bath", "Daycare + A la Carte").
+            is_grooming = service_family == "grooming" or service_name_looks_grooming(service)
+            if is_grooming:
+                hhmm = _parse_time_to_hhmm(resolved_time_pref)
+                if hhmm is None:
+                    response = (
+                        "GROOMING_NEEDS_SPECIFIC_TIME: Grooming appointments are booked at a specific "
+                        "time. Ask the caller: 'What time would you like for your grooming appointment? "
+                        "For example, 9am or 2pm.' Do not call check_availability again until you have "
+                        "a specific time from the caller."
+                    )
+                    userdata.runtime_tool_facts["last_availability_signature"] = signature
+                    userdata.runtime_tool_facts["last_availability_response"] = response
+                    return response
+
+                # Determine the specific grooming service name (e.g. "Deluxe Bath", "A la Carte").
+                # Exclude generic top-level category labels that carry no duration signal.
+                svc_lower = (service or "").strip().lower()
+                specific_service: str | None = (
+                    service
+                    if service and svc_lower not in {"grooming", "groom", "boarding", "daycare", "training"}
+                    else None
+                )
+
+                try:
+                    result = determine_service_availability(
+                        # Pass the real category so Gingr knows boarding/daycare context.
+                        category=service_family.capitalize(),
+                        requested_date=resolved_date,
+                        requested_start_hhmm=hhmm,
+                        requested_service=specific_service,
+                        # Fall back to 60-min when no specific service name is given.
+                        explicit_duration=60 if specific_service is None else None,
+                    )
+                except Exception as exc:
+                    logger.warning("gingr.check_availability failed: %s", exc)
+                    response = (
+                        f"GROOMING_CHECK_ERROR: Could not reach the scheduling system ({exc}). "
+                        "Tell the caller you are unable to check grooming availability right now and "
+                        "offer to have a team member call back."
+                    )
+                    userdata.runtime_tool_facts["last_availability_signature"] = signature
+                    userdata.runtime_tool_facts["last_availability_response"] = response
+                    return response
+
+                # Always print Gingr result to console for independent verification.
+                print(
+                    f"\n[GINGR] check_availability result:"
+                    f"\n  category       : {service_family}"
+                    f"\n  service        : {specific_service or '(generic grooming)'}"
+                    f"\n  date           : {resolved_date}"
+                    f"\n  requested_start: {result.requested_start}"
+                    f"\n  requested_end  : {result.requested_end}"
+                    f"\n  duration_min   : {result.duration_minutes}"
+                    f"\n  available      : {result.available}"
+                    f"\n  reason         : {result.reason}"
+                    f"\n  next_available : {result.next_available_start}"
+                    f"\n  occupied_slots : {len(result.occupied_slots)} slot(s)"
+                    f"\n  segment_checks : {len(result.segment_checks)} segment(s)\n",
+                    flush=True,
+                )
+
+                userdata.service_family = service_family
+                userdata.service_plan = selected_plan
+                userdata.selection_source = "scheduler.check_availability"
+                userdata.requested_services = [service_family]
+                userdata.requested_date = resolved_date
+                userdata.requested_time = hhmm
+                userdata._last_checked_service = service_family
+                userdata._last_checked_plan = selected_plan
+                userdata._last_checked_date = resolved_date
+                userdata._last_checked_time = hhmm
+                userdata.runtime_tool_facts["last_gingr_result"] = {
+                    "available": result.available,
+                    "reason": result.reason,
+                    "requested_start": result.requested_start,
+                    "requested_end": result.requested_end,
+                    "duration_minutes": result.duration_minutes,
+                    "next_available_start": result.next_available_start,
+                    "requested_service": result.requested_service,
+                    "category": service_family,
+                }
+                userdata.runtime_tool_facts["availability"] = {
+                    "service_family": service_family,
+                    "service_plan": selected_plan,
+                    "service_label": service_label,
+                    "date": resolved_date,
+                    "time_preference": hhmm,
+                    "times": [hhmm] if result.available else [],
+                }
+
+                trace_log(
+                    logger=logger,
+                    flag_name="HH_TRACE_STATE",
+                    trace_id=trace_id,
+                    message="tool.check_availability.gingr_result",
+                    available=result.available,
+                    reason=result.reason,
+                    next_available=result.next_available_start,
+                    occupied_slots=len(result.occupied_slots),
+                    changes=userdata_diff(before, userdata_snapshot(userdata)),
+                )
+
+                # Build caller-facing label: for mixed cases, name the add-on specifically.
+                grooming_label = (
+                    specific_service if specific_service and service_family != "grooming"
+                    else service_label
+                )
+
+                if result.available:
+                    response = (
+                        f"GROOMING_AVAILABLE: {grooming_label} on {resolved_date} at {hhmm} is open.\n"
+                        "Groomer will be assigned by the Happy Hound team at the time of appointment.\n\n"
+                        "Tell user: That time is available. Ask if they would like to confirm this slot."
+                    )
+                else:
+                    if result.reason == "outside_staffing_hours":
+                        reason_msg = "that time is outside grooming hours"
+                    else:
+                        reason_msg = "the grooming schedule is full at that time"
+                    if result.next_available_start:
+                        next_human = _format_slot_datetime(result.next_available_start)
+                        response = (
+                            f"GROOMING_UNAVAILABLE: {hhmm} on {resolved_date} is not available "
+                            f"({reason_msg}). Next available grooming slot: {next_human}.\n\n"
+                            f"Tell user: That time is not available. Offer {next_human} as "
+                            "the next open slot and ask if they would like to book that instead."
+                        )
+                    else:
+                        response = (
+                            f"GROOMING_UNAVAILABLE: {hhmm} on {resolved_date} is not available "
+                            f"({reason_msg}). No nearby grooming slots found within 7 days. "
+                            "Tell user: That time is not available and suggest trying a different date."
+                        )
+
+                userdata.runtime_tool_facts["last_availability_signature"] = signature
+                userdata.runtime_tool_facts["last_availability_response"] = response
+                return response
+
+            # --- Non-grooming path: use mock provider (daycare / boarding / training) ---
             slots = self._get_slots(
                 context=context,
                 service_family=service_family,
@@ -331,6 +520,50 @@ class SchedulerAgent(BaseAgent):
         service_label = get_service_display_label(service_family, selected_plan)
 
         resolved_date = date or getattr(userdata, "_last_checked_date", None) or userdata.requested_date or "tomorrow"
+
+        quote = compute_selection_quote(
+            service_family=service_family,
+            service_plan=selected_plan,
+            dog_size=userdata.dog_size,
+        )
+
+        # --- Grooming path: use Gingr result, no mock slot lookup ---
+        if service_family == "grooming" or service_name_looks_grooming(service):
+            gingr = userdata.runtime_tool_facts.get("last_gingr_result", {})
+            if not gingr.get("available"):
+                return (
+                    "ERROR: No confirmed grooming slot found. "
+                    "Please call check_availability with a specific time first."
+                )
+            confirmed_time = gingr.get("requested_start") or time
+            duration_min = gingr.get("duration_minutes") or 60
+            duration_str = f"{duration_min} minutes"
+            specific_service = gingr.get("requested_service") or service_label
+
+            userdata.runtime_tool_facts["slot_details"] = {
+                "service_family": service_family,
+                "service_plan": selected_plan,
+                "service_label": service_label,
+                "date": resolved_date,
+                "time": confirmed_time,
+                "staff": "Happy Hound Grooming Team",
+                "duration": duration_str,
+                "quoted_total": quote["total"],
+                "billing_cycle": quote["billing_cycle"],
+            }
+            return (
+                f"SLOT_DETAILS:\n"
+                f"Service: {specific_service}\n"
+                f"Date: {resolved_date}\n"
+                f"Time: {confirmed_time}\n"
+                f"Staff: Happy Hound Grooming Team (assigned at appointment)\n"
+                f"Duration: {duration_str}\n"
+                f"Quote: ${float(quote['total']):.2f} ({quote['billing_cycle']})\n"
+                f"Notes: {quote['quote_notes']}\n\n"
+                "Tell user: Present these details and ask if they want to confirm this slot."
+            )
+
+        # --- Non-grooming path: look up from cached mock slots ---
         resolved_time_pref = getattr(userdata, "_last_checked_time", None) or userdata.requested_time or "anytime"
 
         slots: list[dict] = list(getattr(userdata, "_last_slots", []))
@@ -357,12 +590,6 @@ class SchedulerAgent(BaseAgent):
             available = ", ".join(slot["time"] for slot in slots) if slots else "none"
             return f"ERROR: No slot found for {time}. Available times: {available}"
 
-        quote = compute_selection_quote(
-            service_family=service_family,
-            service_plan=selected_plan,
-            dog_size=userdata.dog_size,
-        )
-
         userdata.runtime_tool_facts["slot_details"] = {
             "service_family": service_family,
             "service_plan": selected_plan,
@@ -375,7 +602,7 @@ class SchedulerAgent(BaseAgent):
             "billing_cycle": quote["billing_cycle"],
         }
 
-        details = (
+        return (
             f"SLOT_DETAILS:\n"
             f"Service: {service_label}\n"
             f"Date: {selected['date']}\n"
@@ -386,7 +613,6 @@ class SchedulerAgent(BaseAgent):
             f"Notes: {quote['quote_notes']}\n\n"
             "Tell user: Present these details and ask if they want to confirm this slot."
         )
-        return details
 
     @function_tool
     async def book_slot(
@@ -420,6 +646,83 @@ class SchedulerAgent(BaseAgent):
         service_family, selected_plan = self._resolve_selection(userdata, selection_value)
         service_label = get_service_display_label(service_family, selected_plan)
 
+        quote = compute_selection_quote(
+            service_family=service_family,
+            service_plan=selected_plan,
+            dog_size=userdata.dog_size,
+        )
+
+        # --- Grooming path: confirm from Gingr result, no mock slot lookup ---
+        if service_family == "grooming" or service_name_looks_grooming(service):
+            gingr = userdata.runtime_tool_facts.get("last_gingr_result", {})
+            if not gingr.get("available"):
+                return (
+                    "BOOKING_FAILED: No confirmed grooming slot found. "
+                    "Please call check_availability with a specific time first."
+                )
+            confirmed_time = gingr.get("requested_start") or time
+            duration_min = gingr.get("duration_minutes") or 60
+            duration_str = f"{duration_min} minutes"
+            staff = "Happy Hound Grooming Team"
+
+            booking_seed = hashlib.sha256(
+                f"{userdata.name}|{service_family}|{selected_plan}|{date}|{confirmed_time}".encode("utf-8")
+            ).hexdigest()[:8].upper()
+            booking_id = f"HH-{booking_seed}"
+
+            userdata.booking_id = booking_id
+            userdata.instructor_name = staff
+            userdata.service_family = service_family
+            userdata.service_plan = selected_plan
+            userdata.selection_source = "scheduler.book_slot"
+            userdata.requested_services = [service_family]
+            userdata.requested_date = date
+            userdata.requested_time = confirmed_time
+            userdata.quoted_subtotal = float(quote["subtotal"])
+            userdata.quoted_tax = float(quote["tax"])
+            userdata.quoted_total = float(quote["total"])
+            userdata.total_amount = float(quote["total"])
+            userdata.quote_notes = (
+                f"{service_label} at {confirmed_time} ({duration_str}). {quote['quote_notes']}"
+            )
+            userdata.handoff_status = "pending"
+            userdata.preferred_date = date
+            userdata.preferred_time = confirmed_time
+
+            userdata.runtime_tool_facts["booking"] = {
+                "booking_id": booking_id,
+                "service_family": service_family,
+                "service_plan": selected_plan,
+                "service_label": service_label,
+                "date": date,
+                "time": confirmed_time,
+                "staff": staff,
+                "duration": duration_str,
+                "quote": quote,
+            }
+            userdata.runtime_tool_facts["quote_basis"] = self._quote_basis(userdata)
+            userdata.runtime_tool_facts["active_quote"] = quote
+
+            trace_log(
+                logger=logger,
+                flag_name="HH_TRACE_STATE",
+                trace_id=trace_id,
+                message="tool.book_slot.state_diff",
+                changes=userdata_diff(before, userdata_snapshot(userdata)),
+            )
+
+            return (
+                f"BOOKING_CONFIRMED:\n"
+                f"Booking ID: {booking_id}\n"
+                f"Service: {service_label}\n"
+                f"Date: {date}\n"
+                f"Time: {confirmed_time}\n"
+                f"Staff: {staff} (assigned at appointment)\n"
+                f"Quoted Total: ${float(quote['total']):.2f} ({quote['billing_cycle']})\n\n"
+                "Tell user: Booking request is confirmed. Ask if they are ready to finalize."
+            )
+
+        # --- Non-grooming path: find slot from mock provider ---
         slots = self._get_slots(
             context=context,
             service_family=service_family,
@@ -449,12 +752,6 @@ class SchedulerAgent(BaseAgent):
             f"{userdata.name}|{service_family}|{selected_plan}|{date}|{selected['time']}".encode("utf-8")
         ).hexdigest()[:8].upper()
         booking_id = f"HH-{booking_seed}"
-
-        quote = compute_selection_quote(
-            service_family=service_family,
-            service_plan=selected_plan,
-            dog_size=userdata.dog_size,
-        )
 
         userdata.booking_id = booking_id
         userdata.instructor_name = selected["staff"]
