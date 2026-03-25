@@ -66,6 +66,14 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 # Requests is used for live Gingr API calls.
 import requests
 
+# python-dotenv is used as a safety-net: if the calling process hasn't already
+# loaded the .env file, this module will try to find and load it itself.
+try:
+    from dotenv import load_dotenv, find_dotenv as _find_dotenv
+    _HAS_DOTENV = True
+except ImportError:
+    _HAS_DOTENV = False
+
 
 # ---------------------------------------------------------------------------
 # Environment-backed configuration
@@ -969,6 +977,15 @@ def fetch_reservations_for_day_from_api(
 
     This is the authoritative live-data source used by the checker.
     """
+
+    # Safety-net: if the GINGR_API_KEY is not yet in the environment, try to
+    # load a .env file.  find_dotenv() walks parent directories so it works
+    # regardless of CWD (e.g. LiveKit subprocess workers, separate servers).
+    # override=False means we never overwrite a value already in the env.
+    if _HAS_DOTENV and not os.environ.get("GINGR_API_KEY", "").strip().strip('"').strip("'"):
+        _dotenv_path = _find_dotenv(usecwd=True)
+        if _dotenv_path:
+            load_dotenv(_dotenv_path, override=False)
 
     # Read env vars at call time (not at import time) so that load_dotenv()
     # called after module import — or in a subprocess worker — is respected.

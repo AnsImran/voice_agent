@@ -655,11 +655,67 @@ class SchedulerAgent(BaseAgent):
         # --- Grooming path: confirm from Gingr result, no mock slot lookup ---
         if service_family == "grooming" or service_name_looks_grooming(service):
             gingr = userdata.runtime_tool_facts.get("last_gingr_result", {})
+
+            # If the last Gingr result is unavailable, check whether the LLM is
+            # trying to book the "next available" slot it already surfaced to the
+            # caller.  In that case we re-run the Gingr check inline rather than
+            # returning BOOKING_FAILED and forcing an extra LLM round-trip of
+            # check_availability → book_slot.
             if not gingr.get("available"):
-                return (
-                    "BOOKING_FAILED: No confirmed grooming slot found. "
-                    "Please call check_availability with a specific time first."
-                )
+                req_hhmm = _parse_time_to_hhmm(time)
+                next_avail_iso = gingr.get("next_available_start", "")
+                # "2026-03-26T13:30" → "13:30"
+                next_hhmm = next_avail_iso[11:16] if len(next_avail_iso) >= 16 else ""
+                if req_hhmm and next_hhmm and req_hhmm == next_hhmm:
+                    # The requested time matches the suggested next-available slot.
+                    # Re-verify it directly so we avoid the LLM round-trip.
+                    specific_service: str | None = (
+                        service
+                        if service and service.strip().lower() not in {
+                            "grooming", "groom", "boarding", "daycare", "training"
+                        }
+                        else None
+                    )
+                    fresh = determine_service_availability(
+                        category=service_family.capitalize(),
+                        requested_date=date,
+                        requested_start_hhmm=req_hhmm,
+                        requested_service=specific_service,
+                        explicit_duration=60 if specific_service is None else None,
+                    )
+                    print(
+                        f"\n[GINGR] book_slot inline re-check:\n"
+                        f"  category       : {service_family}\n"
+                        f"  service        : {specific_service or service}\n"
+                        f"  date           : {date}\n"
+                        f"  requested_start: {fresh.requested_start}\n"
+                        f"  available      : {fresh.available}\n"
+                        f"  reason         : {fresh.reason}\n",
+                        flush=True,
+                    )
+                    gingr = {
+                        "available": fresh.available,
+                        "reason": fresh.reason,
+                        "requested_start": fresh.requested_start,
+                        "requested_end": fresh.requested_end,
+                        "duration_minutes": fresh.duration_minutes,
+                        "next_available_start": fresh.next_available_start,
+                        "requested_service": fresh.requested_service,
+                        "category": fresh.category,
+                    }
+                    userdata.runtime_tool_facts["last_gingr_result"] = gingr
+                    if not gingr["available"]:
+                        return (
+                            f"BOOKING_FAILED: The {service_label} slot at {time} on {date} is no longer "
+                            f"available (reason: {fresh.reason}). "
+                            "Call check_availability again to find the next open slot."
+                        )
+                else:
+                    return (
+                        "BOOKING_FAILED: No confirmed grooming slot found. "
+                        "Please call check_availability with a specific time first."
+                    )
+
             confirmed_time = gingr.get("requested_start") or time
             duration_min = gingr.get("duration_minutes") or 60
             duration_str = f"{duration_min} minutes"
