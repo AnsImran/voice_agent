@@ -10,7 +10,7 @@ LiveKit-based voice receptionist for Happy Hound, using a handoff chain plus a p
 - Handles front-desk Q&A for daycare, boarding, grooming, and training.
 - Starts booking flow and collects intake profile (name, phone, dog weight).
 - Preserves package intent (for example, Golden Leash Club Card) across handoffs.
-- Checks availability (mock provider in this phase), confirms slot, and builds quote.
+- Checks availability via real Gingr API (grooming) or mock provider (daycare/boarding/training), confirms slot, and builds quote.
 - Confirms total and sends structured human handoff email via SMTP.
 - Audits assistant claims against business facts plus runtime tool facts.
 
@@ -49,7 +49,10 @@ Notes:
 3. `SchedulerAgent`
 - Auto-resumes on enter (no silent wait after Intake handoff).
 - Checks availability, shares slot options, provides slot details, books slot.
-- Uses provider seam (`AvailabilityProvider`), currently `MockAvailabilityProvider`.
+- **Grooming**: calls real Gingr API (`tools/gingr_availability.py`) to validate a specific requested time, returns next available slot if the requested time is taken.
+- **Mixed-service grooming** (e.g. "Boarding + Deluxe Bath", "Daycare + A la Carte"): detected via `service_name_looks_grooming()`, routes to Gingr path automatically.
+- **Inline re-check in `book_slot`**: if the caller accepts the "next available" slot suggested after an unavailable result, `book_slot` re-verifies it with Gingr directly instead of requiring a second `check_availability` round-trip.
+- **Daycare / boarding / training**: still uses `MockAvailabilityProvider` (always available).
 - Has duplicate in-flight availability guard to prevent repeated tool calls on same request.
 - Recomputes totals when needed, asks for explicit approval, and sends structured handoff email via `send_structured_handoff`.
 
@@ -136,6 +139,12 @@ SMTP_USER=...
 SMTP_PASS=...
 HANDOFF_FROM_EMAIL=...
 HANDOFF_TO_EMAIL=...
+
+# Gingr API (required for grooming availability checks)
+GINGR_API_KEY=...
+GINGR_TENANT=happyhound
+GINGR_LOCATION_ID=1
+# GINGR_API_BASE is auto-derived from GINGR_TENANT if not set
 
 # Optional
 # HANDOFF_CC_EMAIL=...
@@ -225,7 +234,8 @@ doheny-surf-desk/
     dog_weight_task.py
     ...                      # legacy tasks retained
   tools/
-    availability_provider.py
+    availability_provider.py # mock provider for daycare/boarding/training
+    gingr_availability.py    # real Gingr API integration for grooming
     handoff_email_tools.py
     ...                      # legacy tools retained
   prompts/
@@ -236,6 +246,7 @@ doheny-surf-desk/
 
 ## Current Design Choices
 
-- Scheduler remains mock-provider based in this phase; real API adapter can plug into `AvailabilityProvider`.
+- Grooming availability uses the real Gingr `POST /api/v1/reservations` API; daycare/boarding/training remain mock (always available).
+- `load_dotenv` runs before agent imports in `agent.py` using an absolute path so LiveKit subprocess workers find `.env` regardless of working directory.
 - Gear is bypassed at runtime but intentionally kept in source.
 - Observer runs in strict global mode with static + runtime fact grounding.
