@@ -483,6 +483,13 @@ def resolve_duration_minutes(
         if key in normalized or normalized in key:
             return minutes
 
+    # If nothing in the catalog matches but the name sounds grooming-related,
+    # fall back to a 60-minute default rather than failing the availability
+    # check — callers often use informal terms like "basic grooming" that
+    # aren't exact catalog entries.
+    if service_name_looks_grooming(requested_service):
+        return 60
+
     # If nothing matches, ask the caller to supply an explicit duration.
     raise ValueError(
         f"No default duration found for service '{requested_service}'. "
