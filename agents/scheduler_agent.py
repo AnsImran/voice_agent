@@ -1,6 +1,8 @@
 """Scheduler agent for Happy Hound service availability and booking."""
 from __future__ import annotations
 
+import asyncio
+import functools
 import hashlib
 import logging
 import re
@@ -313,18 +315,37 @@ class SchedulerAgent(BaseAgent):
                     else None
                 )
 
+                # Diagnostic: confirm env vars are visible before the API call.
+                _gingr_key_len = len(
+                    __import__("os").environ.get("GINGR_API_KEY", "").strip().strip('"').strip("'")
+                )
+                print(
+                    f"\n[GINGR] check_availability pre-call:"
+                    f"\n  category       : {service_family}"
+                    f"\n  service        : {specific_service or '(generic)'}"
+                    f"\n  date           : {resolved_date}"
+                    f"\n  hhmm           : {hhmm}"
+                    f"\n  api_key_len    : {_gingr_key_len} (0 = secret not loaded)\n",
+                    flush=True,
+                )
+
                 try:
-                    result = determine_service_availability(
-                        # Pass the real category so Gingr knows boarding/daycare context.
-                        category=service_family.capitalize(),
-                        requested_date=resolved_date,
-                        requested_start_hhmm=hhmm,
-                        requested_service=specific_service,
-                        # Fall back to 60-min when no specific service name is given.
-                        explicit_duration=60 if specific_service is None else None,
+                    # Run the blocking Gingr HTTP calls in a thread so the
+                    # asyncio event loop stays responsive during the network wait.
+                    loop = asyncio.get_event_loop()
+                    result = await loop.run_in_executor(
+                        None,
+                        functools.partial(
+                            determine_service_availability,
+                            category=service_family.capitalize(),
+                            requested_date=resolved_date,
+                            requested_start_hhmm=hhmm,
+                            requested_service=specific_service,
+                            explicit_duration=60 if specific_service is None else None,
+                        ),
                     )
                 except Exception as exc:
-                    logger.warning("gingr.check_availability failed: %s", exc)
+                    logger.warning("gingr.check_availability failed: %r", exc, exc_info=True)
                     response = (
                         f"GROOMING_CHECK_ERROR: Could not reach the scheduling system ({exc}). "
                         "Tell the caller you are unable to check grooming availability right now and "
@@ -676,12 +697,17 @@ class SchedulerAgent(BaseAgent):
                         }
                         else None
                     )
-                    fresh = determine_service_availability(
-                        category=service_family.capitalize(),
-                        requested_date=date,
-                        requested_start_hhmm=req_hhmm,
-                        requested_service=specific_service,
-                        explicit_duration=60 if specific_service is None else None,
+                    loop = asyncio.get_event_loop()
+                    fresh = await loop.run_in_executor(
+                        None,
+                        functools.partial(
+                            determine_service_availability,
+                            category=service_family.capitalize(),
+                            requested_date=date,
+                            requested_start_hhmm=req_hhmm,
+                            requested_service=specific_service,
+                            explicit_duration=60 if specific_service is None else None,
+                        ),
                     )
                     print(
                         f"\n[GINGR] book_slot inline re-check:\n"
