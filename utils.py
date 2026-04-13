@@ -9,10 +9,14 @@ import zoneinfo
 import yaml
 
 DEFAULT_AGENT_TTS = {
-    # Alternating pattern for active handoff chain:
-    # FrontDesk (female) -> Scheduler (male via SESSION_TTS) -> Intake (female) -> Billing (male)
+    # Per-agent TTS defaults. Env vars HH_TTS_<NAME> / <NAME>_TTS override these.
+    # Active handoff chain voices:
+    #   FrontDesk: FRONTDESK_TTS env var (andromeda, female)
+    #   Scheduler: SCHEDULER_TTS env var (amalthea, female)
+    #   Intake:    no override -> inherits SESSION_TTS (male), consistent across
+    #              both the agent's own say() calls and TaskGroup subtask speech
+    #   Billing:   dormant in active flow
     "frontdesk": "deepgram/aura-2:andromeda",
-    "intake": "deepgram/aura-2:amalthea",
     "billing": "deepgram/aura-2:zeus",
 }
 

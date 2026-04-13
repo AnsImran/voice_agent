@@ -124,24 +124,28 @@ class SchedulerAgent(BaseAgent):
         if not userdata.requested_time:
             missing.append("time preference")
 
+        await self.session.say(
+            "Welcome to the Scheduling Department at Happy Hound. "
+            "Let me check availability for you."
+        )
+
         if missing:
             await self.session.generate_reply(
                 instructions=(
-                    "You are now the SchedulerAgent. Start with one short department intro "
-                    "exactly once, then continue immediately without waiting for additional "
-                    "user prompts. Ask only for the missing details: "
+                    "You are now the SchedulerAgent. You have already greeted the caller "
+                    "with the department welcome — do not repeat it. Continue immediately "
+                    "and ask only for the missing details: "
                     f"{', '.join(missing)}. "
-                    "If the caller previously selected Golden Leash Club Card, preserve that plan. "
-                    "Do not repeat the intro in the same turn."
+                    "If the caller previously selected Golden Leash Club Card, preserve that plan."
                 )
             )
             return
 
         await self.session.generate_reply(
             instructions=(
-                "Start with one short department intro exactly once, then briefly confirm "
-                "the known service and schedule preferences and immediately call check_availability. "
-                "Do not repeat the intro in the same turn."
+                "You have already greeted the caller with the department welcome — "
+                "do not repeat it. Briefly confirm the known service and schedule "
+                "preferences and immediately call check_availability."
             )
         )
 
@@ -765,10 +769,14 @@ class SchedulerAgent(BaseAgent):
                 changes=userdata_diff(before, userdata_snapshot(userdata)),
             )
 
-            await self.session.say(
-                "Slot confirmed! I'll transfer you now to finalize your booking. "
-                "Kindly wait a moment."
+            handle = await self.session.say(
+                "Slot confirmed! I'm now transferring you to our Intake Department "
+                "to finalize your booking. Kindly wait a moment."
             )
+            try:
+                await handle.wait_for_playout()
+            except Exception:
+                pass
             from agents.intake_agent import IntakeAgent
             return IntakeAgent(chat_ctx=self.chat_ctx)
 
@@ -823,10 +831,14 @@ class SchedulerAgent(BaseAgent):
             changes=userdata_diff(before, userdata_snapshot(userdata)),
         )
 
-        await self.session.say(
-            "Slot confirmed! I'll transfer you now to finalize your booking. "
-            "Kindly wait a moment."
+        handle = await self.session.say(
+            "Slot confirmed! I'm now transferring you to our Intake Department "
+            "to finalize your booking. Kindly wait a moment."
         )
+        try:
+            await handle.wait_for_playout()
+        except Exception:
+            pass
         from agents.intake_agent import IntakeAgent
         return IntakeAgent(chat_ctx=self.chat_ctx)
 

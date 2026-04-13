@@ -13,7 +13,6 @@ from tools.handoff_email_tools import build_handoff_payload, send_handoff_email
 from utils import (
     ensure_session_trace_id,
     load_prompt,
-    resolve_agent_tts,
     trace_log,
     userdata_diff,
     userdata_snapshot,
@@ -31,6 +30,9 @@ class IntakeAgent(BaseAgent):
     """Agent responsible for collecting customer profile information and finalizing bookings."""
 
     def __init__(self, chat_ctx=None):
+        # No per-agent TTS override: Intake inherits SESSION_TTS so its own
+        # say() calls and TaskGroup subtask speech use the same voice, avoiding
+        # the mid-agent voice flip we hit on the earlier deploy.
         agent_kwargs = {
             "instructions": load_prompt(
                 'intake_prompt.yaml',
@@ -38,15 +40,13 @@ class IntakeAgent(BaseAgent):
             ),
             "chat_ctx": chat_ctx,
         }
-        tts_descriptor = resolve_agent_tts("intake")
-        if tts_descriptor:
-            agent_kwargs["tts"] = tts_descriptor
         super().__init__(**agent_kwargs)
     
     async def on_enter(self) -> None:
         """Collect customer profile then finalize the booking confirmed by Scheduler."""
         await self.session.say(
-            "Almost there! I just need a few quick details to lock in your booking."
+            "Welcome to the Intake Department at Happy Hound. "
+            "I'll just need a few quick details to finalize your booking."
         )
 
         # Create TaskGroup for sequential profile collection
