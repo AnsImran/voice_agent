@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import functools
-import hashlib
 import logging
 import re
 
@@ -643,8 +642,8 @@ class SchedulerAgent(BaseAgent):
         time: str,
         service: str | None = None,
         service_plan: str | None = None,
-    ) -> str:
-        """Book a slot and persist normalized request + quote state."""
+    ) -> "BaseAgent | str":
+        """Confirm a slot and transfer to Intake to collect details and finalize the booking."""
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
         before = userdata_snapshot(userdata)
@@ -660,18 +659,12 @@ class SchedulerAgent(BaseAgent):
         )
 
         await self.session.say(
-            "Great. I'm confirming that booking now. Kindly wait a moment."
+            "Great. I'm confirming that slot now. Kindly wait a moment."
         )
 
         selection_value = service_plan or service or userdata.service_plan or userdata.service_family
         service_family, selected_plan = self._resolve_selection(userdata, selection_value)
         service_label = get_service_display_label(service_family, selected_plan)
-
-        quote = compute_selection_quote(
-            service_family=service_family,
-            service_plan=selected_plan,
-            dog_size=userdata.dog_size,
-        )
 
         # --- Grooming path: confirm from Gingr result, no mock slot lookup ---
         if service_family == "grooming" or service_name_looks_grooming(service):
@@ -747,32 +740,14 @@ class SchedulerAgent(BaseAgent):
             duration_str = f"{duration_min} minutes"
             staff = "Happy Hound Grooming Team"
 
-            booking_seed = hashlib.sha256(
-                f"{userdata.name}|{service_family}|{selected_plan}|{date}|{confirmed_time}".encode("utf-8")
-            ).hexdigest()[:8].upper()
-            booking_id = f"HH-{booking_seed}"
-
-            userdata.booking_id = booking_id
-            userdata.instructor_name = staff
             userdata.service_family = service_family
             userdata.service_plan = selected_plan
             userdata.selection_source = "scheduler.book_slot"
             userdata.requested_services = [service_family]
             userdata.requested_date = date
             userdata.requested_time = confirmed_time
-            userdata.quoted_subtotal = float(quote["subtotal"])
-            userdata.quoted_tax = float(quote["tax"])
-            userdata.quoted_total = float(quote["total"])
-            userdata.total_amount = float(quote["total"])
-            userdata.quote_notes = (
-                f"{service_label} at {confirmed_time} ({duration_str}). {quote['quote_notes']}"
-            )
-            userdata.handoff_status = "pending"
-            userdata.preferred_date = date
-            userdata.preferred_time = confirmed_time
 
-            userdata.runtime_tool_facts["booking"] = {
-                "booking_id": booking_id,
+            userdata.runtime_tool_facts["confirmed_slot"] = {
                 "service_family": service_family,
                 "service_plan": selected_plan,
                 "service_label": service_label,
@@ -780,29 +755,22 @@ class SchedulerAgent(BaseAgent):
                 "time": confirmed_time,
                 "staff": staff,
                 "duration": duration_str,
-                "quote": quote,
             }
-            userdata.runtime_tool_facts["quote_basis"] = self._quote_basis(userdata)
-            userdata.runtime_tool_facts["active_quote"] = quote
 
             trace_log(
                 logger=logger,
                 flag_name="HH_TRACE_STATE",
                 trace_id=trace_id,
-                message="tool.book_slot.state_diff",
+                message="tool.book_slot.slot_confirmed_grooming",
                 changes=userdata_diff(before, userdata_snapshot(userdata)),
             )
 
-            return (
-                f"BOOKING_CONFIRMED:\n"
-                f"Booking ID: {booking_id}\n"
-                f"Service: {service_label}\n"
-                f"Date: {date}\n"
-                f"Time: {confirmed_time}\n"
-                f"Staff: {staff} (assigned at appointment)\n"
-                f"Quoted Total: ${float(quote['total']):.2f} ({quote['billing_cycle']})\n\n"
-                "Tell user: Booking request is confirmed. Ask if they are ready to finalize."
+            await self.session.say(
+                "Slot confirmed! I'll transfer you now to finalize your booking. "
+                "Kindly wait a moment."
             )
+            from agents.intake_agent import IntakeAgent
+            return IntakeAgent(chat_ctx=self.chat_ctx)
 
         # --- Non-grooming path: find slot from mock provider ---
         slots = self._get_slots(
@@ -830,35 +798,14 @@ class SchedulerAgent(BaseAgent):
                 f"Available times: {available}"
             )
 
-        booking_seed = hashlib.sha256(
-            f"{userdata.name}|{service_family}|{selected_plan}|{date}|{selected['time']}".encode("utf-8")
-        ).hexdigest()[:8].upper()
-        booking_id = f"HH-{booking_seed}"
-
-        userdata.booking_id = booking_id
-        userdata.instructor_name = selected["staff"]
         userdata.service_family = service_family
         userdata.service_plan = selected_plan
         userdata.selection_source = "scheduler.book_slot"
         userdata.requested_services = [service_family]
         userdata.requested_date = date
         userdata.requested_time = selected["time"]
-        userdata.quoted_subtotal = float(quote["subtotal"])
-        userdata.quoted_tax = float(quote["tax"])
-        userdata.quoted_total = float(quote["total"])
-        userdata.total_amount = float(quote["total"])
-        userdata.quote_notes = (
-            f"{service_label} with {selected['staff']} at {selected['time']} ({selected['duration']}). "
-            f"{quote['quote_notes']}"
-        )
-        userdata.handoff_status = "pending"
 
-        # Keep legacy fields populated for backward compatibility with existing summary paths.
-        userdata.preferred_date = date
-        userdata.preferred_time = selected["time"]
-
-        userdata.runtime_tool_facts["booking"] = {
-            "booking_id": booking_id,
+        userdata.runtime_tool_facts["confirmed_slot"] = {
             "service_family": service_family,
             "service_plan": selected_plan,
             "service_label": service_label,
@@ -866,29 +813,22 @@ class SchedulerAgent(BaseAgent):
             "time": selected["time"],
             "staff": selected["staff"],
             "duration": selected["duration"],
-            "quote": quote,
         }
-        userdata.runtime_tool_facts["quote_basis"] = self._quote_basis(userdata)
-        userdata.runtime_tool_facts["active_quote"] = quote
 
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_STATE",
             trace_id=trace_id,
-            message="tool.book_slot.state_diff",
+            message="tool.book_slot.slot_confirmed_non_grooming",
             changes=userdata_diff(before, userdata_snapshot(userdata)),
         )
 
-        return (
-            f"BOOKING_CONFIRMED:\n"
-            f"Booking ID: {booking_id}\n"
-            f"Service: {service_label}\n"
-            f"Date: {date}\n"
-            f"Time: {selected['time']}\n"
-            f"Staff: {selected['staff']}\n"
-            f"Quoted Total: ${float(quote['total']):.2f} ({quote['billing_cycle']})\n\n"
-            "Tell user: Booking is confirmed and ask if they are ready to finalize the request."
+        await self.session.say(
+            "Slot confirmed! I'll transfer you now to finalize your booking. "
+            "Kindly wait a moment."
         )
+        from agents.intake_agent import IntakeAgent
+        return IntakeAgent(chat_ctx=self.chat_ctx)
 
     @function_tool
     async def suggest_alternative_times(

@@ -22,7 +22,7 @@ class FrontDeskAgent(BaseAgent):
     
     def __init__(self, chat_ctx=None):
         agent_kwargs = {
-            "instructions": load_prompt('frontdesk_prompt.yaml'),
+            "instructions": load_prompt('frontdesk_prompt.yaml', include_business_facts=True),
             "chat_ctx": chat_ctx,
         }
         tts_descriptor = resolve_agent_tts("frontdesk")
@@ -84,14 +84,14 @@ class FrontDeskAgent(BaseAgent):
             trace_id=trace_id,
             message="frontdesk.start_booking",
             from_agent="FrontDeskAgent",
-            to_agent="IntakeAgent",
+            to_agent="SchedulerAgent",
             changes=userdata_diff(before, userdata_snapshot(userdata)),
         )
 
         await self.session.say(
-            "Great. I'm now transferring your call to our Intake Department to collect "
-            "your details. Kindly wait a moment while I connect you."
+            "Great. I'm now transferring your call to our Scheduling Department to check "
+            "availability. Kindly wait a moment while I connect you."
         )
 
-        from agents.intake_agent import IntakeAgent
-        return IntakeAgent(chat_ctx=self.chat_ctx)
+        from agents.scheduler_agent import SchedulerAgent
+        return SchedulerAgent(chat_ctx=self.chat_ctx)

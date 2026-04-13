@@ -10,16 +10,16 @@ import yaml
 
 DEFAULT_AGENT_TTS = {
     # Alternating pattern for active handoff chain:
-    # FrontDesk (female) -> Intake (male via SESSION_TTS) -> Scheduler (female) -> Billing (male)
+    # FrontDesk (female) -> Scheduler (male via SESSION_TTS) -> Intake (female) -> Billing (male)
     "frontdesk": "deepgram/aura-2:andromeda",
-    "scheduler": "deepgram/aura-2:amalthea",
+    "intake": "deepgram/aura-2:amalthea",
     "billing": "deepgram/aura-2:zeus",
 }
 
 
 def load_reading_guidelines() -> str:
     """Load reading guidelines from YAML file.
-    
+
     Returns:
         Reading guidelines text, or empty string if file not found
     """
@@ -28,6 +28,20 @@ def load_reading_guidelines() -> str:
         with open(guidelines_path, 'r') as f:
             guidelines_data = yaml.safe_load(f)
             return guidelines_data.get('prompt', '')
+    return ''
+
+
+def load_business_facts() -> str:
+    """Load shared Happy Hound business facts from YAML file.
+
+    Returns:
+        Business facts text, or empty string if file not found
+    """
+    facts_path = Path(__file__).parent / "prompts" / "business_facts.yaml"
+    if facts_path.exists():
+        with open(facts_path, 'r') as f:
+            facts_data = yaml.safe_load(f)
+            return facts_data.get('prompt', '')
     return ''
 
 
@@ -46,14 +60,20 @@ def get_current_date() -> str:
         return now.strftime("%A, %B %d, %Y")
 
 
-def load_prompt(filename: str, include_reading_guidelines: bool = True, **variables) -> str:
+def load_prompt(
+    filename: str,
+    include_reading_guidelines: bool = True,
+    include_business_facts: bool = False,
+    **variables,
+) -> str:
     """Load a prompt from a YAML file with variable substitution.
-    
+
     Args:
         filename: Name of the YAML file (e.g., 'scheduler_prompt.yaml')
         include_reading_guidelines: If True, prepend reading guidelines
+        include_business_facts: If True, prepend shared Happy Hound business facts
         **variables: Variables to substitute in the prompt (e.g., current_date="...")
-        
+
     Returns:
         The prompt text with variables substituted
     """
@@ -61,15 +81,20 @@ def load_prompt(filename: str, include_reading_guidelines: bool = True, **variab
     with open(prompt_path, 'r') as f:
         data = yaml.safe_load(f)
         prompt_text = data.get('prompt', '')
-    
+
     if variables:
         prompt_text = prompt_text.format(**variables)
-    
+
+    if include_business_facts:
+        facts = load_business_facts()
+        if facts:
+            prompt_text = f"{facts}\n\n{'-' * 50}\n\n{prompt_text}"
+
     if include_reading_guidelines:
         guidelines = load_reading_guidelines()
         if guidelines:
             prompt_text = f"{guidelines}\n\n{'-' * 50}\n\n{prompt_text}"
-    
+
     return prompt_text
 
 
