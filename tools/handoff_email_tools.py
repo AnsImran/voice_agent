@@ -108,14 +108,25 @@ def _fmt_date(iso_str: str | None) -> str:
 
 
 def _fmt_time(iso_str: str | None) -> str:
-    """'2026-03-31T08:00' -> '8:00 AM'"""
-    if not iso_str or "T" not in iso_str:
+    """'2026-03-31T08:00' -> '8:00 AM', '09:00' -> '9:00 AM'"""
+    if not iso_str:
         return ""
+    # Full ISO datetime (contains 'T')
+    if "T" in iso_str:
+        try:
+            dt = _dt.fromisoformat(iso_str)
+            h = dt.hour % 12 or 12
+            return f"{h}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
+        except Exception:
+            return iso_str
+    # Plain HH:MM (e.g. "09:00", "14:30")
     try:
-        dt = _dt.fromisoformat(iso_str)
-        h = dt.hour % 12 or 12
-        return f"{h}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
-    except Exception:
+        parts = iso_str.strip().split(":")
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        h = hour % 12 or 12
+        return f"{h}:{minute:02d} {'AM' if hour < 12 else 'PM'}"
+    except (ValueError, IndexError):
         return iso_str
 
 
