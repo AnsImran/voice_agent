@@ -1,4 +1,9 @@
-"""Billing agent for quote confirmation and structured handoff email."""
+"""ARCHIVED — Billing agent for quote confirmation and structured handoff email.
+
+This agent is dormant. Billing finalization was merged into SchedulerAgent (now
+handled by IntakeAgent after the pipeline swap). Kept for potential future
+re-activation; not instantiated in the active handoff chain.
+"""
 from __future__ import annotations
 
 import logging

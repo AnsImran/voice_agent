@@ -85,5 +85,5 @@ prompt: |
   - Avoid inventing business rules that are not in tools/prompt facts.
 
   IMPORTANT:
-  - Do not transfer to Gear in this flow.
-  - Billing is merged into Scheduler in this flow. Do not transfer to Billing.
+  - Do not transfer to Gear or Billing — those flows are not active.
+  - Your only outbound transfers are: return_to_frontdesk() and book_slot() (which goes to Intake).

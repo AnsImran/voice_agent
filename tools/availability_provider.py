@@ -48,25 +48,25 @@ SERVICE_META = {
         "label": "Daycare (Drop-in Day Visit)",
         "duration": "all day",
         "times": ["07:00", "08:00", "09:00", "12:00", "14:00"],
-        "staff": ["Alex", "Brooke", "Diego", "Priya"],
+        "staff": ["Happy Hound Team"],
     },
     "boarding": {
         "label": "Classic Sleepover",
         "duration": "overnight",
         "times": ["10:00", "12:00", "14:00", "16:00"],
-        "staff": ["Janelle", "Mateo", "Chris"],
+        "staff": ["Happy Hound Team"],
     },
     "grooming": {
         "label": "Basic Bath",
         "duration": "60-90 minutes",
         "times": ["09:00", "11:00", "13:00", "15:00"],
-        "staff": ["Taylor", "Morgan", "Sam"],
+        "staff": ["Happy Hound Team"],
     },
     "training": {
         "label": "A-La-Bark",
         "duration": "1 hour",
         "times": ["10:00", "12:00", "14:00", "16:00"],
-        "staff": ["Jordan", "Riley"],
+        "staff": ["Happy Hound Team"],
     },
 }
 

@@ -80,9 +80,9 @@ async def entrypoint(ctx: JobContext):
     """Main entrypoint for Happy Hound booking agent.
     
     Sets up multi-agent session with:
-    - FrontDeskAgent: Greets and routes callers into booking flow
-    - IntakeAgent: Collects customer profile via sequential TaskGroup
-    - SchedulerAgent: Checks service availability, confirms slots, and sends SMTP handoff payload
+    - FrontDeskAgent: Greets callers, answers business questions, routes into booking flow
+    - SchedulerAgent: Checks service availability, confirms slots, transfers to Intake
+    - IntakeAgent: Collects customer profile via sequential TaskGroup, finalizes booking with SMTP handoff
     - ObserverAgent: Monitors for hallucinated business facts (parallel)
     """
     logger.info("Starting Happy Hound booking agent in room %s", ctx.room.name)

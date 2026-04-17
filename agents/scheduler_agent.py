@@ -17,7 +17,6 @@ from tools.availability_provider import (
     resolve_service_selection,
 )
 from tools.gingr_availability import determine_service_availability, service_name_looks_grooming
-from tools.handoff_email_tools import build_handoff_payload, send_handoff_email
 from utils import (
     ensure_session_trace_id,
     get_current_date,
@@ -104,15 +103,12 @@ class SchedulerAgent(BaseAgent):
         """Auto-resume flow after handoff from intake without waiting for user speech."""
         userdata = self.session.userdata
         trace_id = ensure_session_trace_id(userdata)
-        pending = getattr(userdata, "handoff_pending_action", None)
-        userdata.handoff_pending_action = None
 
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",
             trace_id=trace_id,
             message="scheduler.on_enter",
-            pending_action=pending,
             summary=userdata.summarize(),
         )
 
@@ -942,96 +938,6 @@ class SchedulerAgent(BaseAgent):
         )
 
     @function_tool
-    async def send_structured_handoff(
-        self,
-        context: RunContext_T,
-        notes: str = "",
-    ) -> str:
-        """Send structured session state to staff via SMTP handoff email."""
-        userdata = context.userdata
-        trace_id = ensure_session_trace_id(userdata)
-        before = userdata_snapshot(userdata)
-        trace_log(
-            logger=logger,
-            flag_name="HH_TRACE_TOOLS",
-            trace_id=trace_id,
-            message="tool.send_structured_handoff.call",
-            notes=notes,
-        )
-
-        await self.session.say(
-            "Understood. I'm sending your request details to our team now. "
-            "Kindly wait a moment."
-        )
-
-        self._ensure_quote(userdata, force_recompute=False)
-
-        if notes.strip():
-            extra_notes = notes.strip()
-            userdata.quote_notes = (
-                f"{userdata.quote_notes} | Additional caller note: {extra_notes}"
-                if userdata.quote_notes
-                else f"Additional caller note: {extra_notes}"
-            )
-
-        payload = build_handoff_payload(userdata)
-        userdata.handoff_status = "pending"
-
-        try:
-            result = send_handoff_email(payload)
-        except ValueError as exc:
-            userdata.handoff_status = "failed"
-            trace_log(
-                logger=logger,
-                flag_name="HH_TRACE_STATE",
-                trace_id=trace_id,
-                message="tool.send_structured_handoff.config_error",
-                error=str(exc),
-                changes=userdata_diff(before, userdata_snapshot(userdata)),
-            )
-            return (
-                f"HANDOFF_CONFIG_ERROR: {exc}. "
-                "Tell user: I have your request, but there is a system configuration issue. "
-                "A team member will follow up shortly."
-            )
-        except RuntimeError as exc:
-            userdata.handoff_status = "failed"
-            trace_log(
-                logger=logger,
-                flag_name="HH_TRACE_STATE",
-                trace_id=trace_id,
-                message="tool.send_structured_handoff.send_error",
-                error=str(exc),
-                changes=userdata_diff(before, userdata_snapshot(userdata)),
-            )
-            return (
-                f"HANDOFF_SEND_FAILED: {exc}. "
-                "Tell user: I could not send the handoff right now, but your request is saved and "
-                "our team will still follow up."
-            )
-
-        userdata.handoff_status = "sent"
-        userdata.payment_status = "pending_human_followup"
-        userdata.runtime_tool_facts["handoff_email"] = {
-            "message_id": result["message_id"],
-            "subject": result["subject"],
-        }
-
-        trace_log(
-            logger=logger,
-            flag_name="HH_TRACE_STATE",
-            trace_id=trace_id,
-            message="tool.send_structured_handoff.state_diff",
-            changes=userdata_diff(before, userdata_snapshot(userdata)),
-        )
-
-        return (
-            f"HANDOFF_SENT: Message ID {result['message_id']}. "
-            f"Subject: {result['subject']}. "
-            "Tell user: Everything is submitted and staff will contact them shortly."
-        )
-
-    @function_tool
     async def mark_handoff_pending(
         self,
         context: RunContext_T,
@@ -1076,28 +982,3 @@ class SchedulerAgent(BaseAgent):
 
         return FrontDeskAgent(chat_ctx=self.chat_ctx)
 
-    @function_tool
-    async def transfer_to_billing(self, context: RunContext_T) -> str:
-        """Legacy alias kept for compatibility; billing finalization now runs in Scheduler."""
-
-        userdata = context.userdata
-        trace_id = ensure_session_trace_id(userdata)
-        if not userdata.is_booking_complete():
-            return "BLOCKED: Confirm service, date, and time before finalizing."
-        if not userdata.booking_id:
-            return "BLOCKED: Confirm a specific booking slot before finalizing."
-
-        quote_meta = self._ensure_quote(userdata, force_recompute=True)
-        trace_log(
-            logger=logger,
-            flag_name="HH_TRACE_HANDOFFS",
-            trace_id=trace_id,
-            message="scheduler.transfer_to_billing_legacy_alias",
-            from_agent="SchedulerAgent",
-            summary=userdata.summarize(),
-        )
-        return (
-            "BILLING_MERGED: Final confirmation and handoff now happen in Scheduler. "
-            f"Current total is ${userdata.quoted_total:.2f} ({quote_meta['billing_cycle']}). "
-            "Tell user: confirm the total, and if approved call send_structured_handoff."
-        )

@@ -1,4 +1,9 @@
-"""Gear agent for recommending surfboard and wetsuit equipment."""
+"""ARCHIVED — Gear agent for recommending surfboard and wetsuit equipment.
+
+This agent is dormant. The gear recommendation flow was bypassed when the
+active pipeline was simplified to FrontDesk -> Scheduler -> Intake. Kept for
+potential future re-activation; not instantiated in the active handoff chain.
+"""
 from livekit.agents.llm import function_tool
 
 from .base_agent import BaseAgent, RunContext_T

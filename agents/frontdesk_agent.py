@@ -71,7 +71,6 @@ class FrontDeskAgent(BaseAgent):
         userdata.service_plan = plan
         userdata.requested_services = [family]
         userdata.selection_source = "frontdesk.start_booking"
-        userdata.handoff_pending_action = "scheduler_on_enter"
         userdata.runtime_tool_facts["frontdesk_selection"] = {
             "service_request": service_request,
             "service_family": family,
