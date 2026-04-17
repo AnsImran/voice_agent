@@ -599,7 +599,8 @@ class SchedulerAgent(BaseAgent):
                 time_preference=resolved_time_pref,
             )
 
-        requested = _normalize_time_token(time)
+        parsed_hhmm = _parse_time_to_hhmm(time)
+        requested = parsed_hhmm or _normalize_time_token(time)
         selected = next(
             (
                 slot
@@ -788,7 +789,8 @@ class SchedulerAgent(BaseAgent):
             time_preference="anytime",
         )
 
-        requested = _normalize_time_token(time)
+        parsed_hhmm = _parse_time_to_hhmm(time)
+        requested = parsed_hhmm or _normalize_time_token(time)
         selected = next(
             (
                 slot
