@@ -123,6 +123,57 @@ class SurfBookingData:
 RunContext_T = RunContext[SurfBookingData]
 
 
+def reset_booking_state(userdata: SurfBookingData) -> None:
+    """Clear booking-specific fields on backward transfers so the receiving
+    agent starts fresh and doesn't auto-resume stale intent from chat history.
+
+    Preserves customer profile (name, phone, dog_weight_lbs, dog_size) since
+    those are still valid across a service change. Archives any completed
+    booking_id into runtime_tool_facts['archived_bookings'] so we don't lose
+    track of successful bookings.
+    """
+    previously_sent = (
+        userdata.handoff_status == "sent" and userdata.booking_id
+    )
+    if previously_sent:
+        userdata.runtime_tool_facts.setdefault(
+            "archived_bookings", []
+        ).append(userdata.booking_id)
+
+    userdata.service_family = None
+    userdata.service_plan = None
+    userdata.requested_services = []
+    userdata.requested_date = None
+    userdata.requested_time = None
+    userdata.selection_source = None
+    userdata.booking_id = None
+    userdata.instructor_name = None
+    userdata.quoted_subtotal = None
+    userdata.quoted_tax = None
+    userdata.quoted_total = None
+    userdata.quote_notes = None
+    userdata.preferred_date = None
+    userdata.preferred_time = None
+    userdata.handoff_status = None
+    userdata.payment_status = None
+
+    for key in (
+        "confirmed_slot",
+        "availability",
+        "last_availability_signature",
+        "last_availability_response",
+        "last_gingr_result",
+        "slot_details",
+        "booking",
+        "quote_basis",
+        "active_quote",
+        "alternatives",
+        "frontdesk_selection",
+        "handoff_email",
+    ):
+        userdata.runtime_tool_facts.pop(key, None)
+
+
 class BaseAgent(Agent):
     """Base agent with shared handoff logic."""
 

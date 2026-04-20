@@ -8,7 +8,7 @@ import re
 
 from livekit.agents.llm import function_tool
 
-from .base_agent import BaseAgent, RunContext_T
+from .base_agent import BaseAgent, RunContext_T, reset_booking_state
 from tools.availability_provider import (
     AvailabilityProvider,
     MockAvailabilityProvider,
@@ -89,6 +89,7 @@ class SchedulerAgent(BaseAgent):
             "instructions": load_prompt(
                 "scheduler_prompt.yaml",
                 current_date=get_current_date(),
+                include_business_facts=True,
             ),
             "chat_ctx": chat_ctx,
         }
@@ -120,10 +121,17 @@ class SchedulerAgent(BaseAgent):
         if not userdata.requested_time:
             missing.append("time preference")
 
-        await self.session.say(
-            "Welcome to the Scheduling Department at Happy Hound. "
-            "Let me check availability for you."
-        )
+        is_reentry = bool(self.chat_ctx and self.chat_ctx.items)
+        if is_reentry:
+            await self.session.say(
+                "Welcome back to the Scheduling Department. "
+                "Let me help you check availability."
+            )
+        else:
+            await self.session.say(
+                "Welcome to the Scheduling Department at Happy Hound. "
+                "Let me check availability for you."
+            )
 
         if missing:
             await self.session.generate_reply(
@@ -961,9 +969,10 @@ class SchedulerAgent(BaseAgent):
 
     @function_tool
     async def return_to_frontdesk(self, context: RunContext_T) -> BaseAgent:
-        """Return customer to front desk for additional help."""
+        """Return customer to front desk for additional help or to start a new service."""
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
+        reset_booking_state(userdata)
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",

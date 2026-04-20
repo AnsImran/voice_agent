@@ -9,7 +9,7 @@ import logging
 
 from livekit.agents.llm import function_tool
 
-from .base_agent import BaseAgent, RunContext_T
+from .base_agent import BaseAgent, RunContext_T, reset_booking_state
 from tasks.dog_weight_task import derive_dog_size_from_weight
 from tasks.phone_task import validate_phone
 from tools.availability_provider import compute_selection_quote, get_service_display_label
@@ -41,15 +41,49 @@ class IntakeAgent(BaseAgent):
         super().__init__(**agent_kwargs)
 
     async def on_enter(self) -> None:
-        """Greet the caller and prompt for the first piece of profile info."""
+        """Greet the caller and prompt for the first piece of profile info.
+
+        If the caller already completed intake once in this session (e.g. they
+        booked one service, then came back for a second service), we already
+        have name/phone/weight — skip straight to finalization instead of
+        re-asking.
+        """
+        userdata = self.session.userdata
+        profile_complete = bool(
+            userdata.name and userdata.phone and userdata.dog_weight_lbs
+        )
+
+        if profile_complete:
+            await self.session.say(
+                "Welcome back to the Intake Department. "
+                "I still have your contact details, so let me finalize this booking now."
+            )
+
+            class _ReuseCtx:
+                pass
+            ctx = _ReuseCtx()
+            ctx.userdata = userdata
+            await self._finalize_booking(ctx)
+            return
+
         await self.session.say(
             "Welcome to the Intake Department at Happy Hound. "
             "I'll just need a few quick details to finalize your booking."
         )
+
+        missing_parts = []
+        if not userdata.name:
+            missing_parts.append("name")
+        if not userdata.phone:
+            missing_parts.append("phone number")
+        if not userdata.dog_weight_lbs:
+            missing_parts.append("dog's weight")
+
         await self.session.generate_reply(
             instructions=(
                 "You have already greeted the caller — do not repeat the greeting. "
-                "Ask for their full name to get started."
+                f"Ask for the first missing detail: {missing_parts[0]}. "
+                "Do not list all the missing fields in one turn — ask one at a time."
             )
         )
 
@@ -170,9 +204,13 @@ class IntakeAgent(BaseAgent):
 
     @function_tool
     async def return_to_frontdesk(self, context: RunContext_T) -> BaseAgent:
-        """Return customer to front desk for additional help or to start a new service."""
+        """Return customer to front desk for general help or to cancel entirely.
+
+        Clears the current booking state so Front Desk starts fresh.
+        """
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
+        reset_booking_state(userdata)
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",
@@ -188,6 +226,34 @@ class IntakeAgent(BaseAgent):
         )
         from agents.frontdesk_agent import FrontDeskAgent
         return FrontDeskAgent(chat_ctx=self.chat_ctx)
+
+    @function_tool
+    async def return_to_scheduler(self, context: RunContext_T) -> BaseAgent:
+        """Transfer to Scheduling to check availability for a DIFFERENT service.
+
+        Use when the caller wants to change their booking mid-intake. Clears
+        the current booking state (service, date, time, confirmed slot) so
+        Scheduler starts fresh, but keeps customer profile (name, phone,
+        dog weight) intact so they don't have to give those details again.
+        """
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        reset_booking_state(userdata)
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="intake.return_to_scheduler",
+            from_agent="IntakeAgent",
+            to_agent="SchedulerAgent",
+            summary=userdata.summarize(),
+        )
+        await self.session.say(
+            "Sure. I'm now transferring you back to our Scheduling Department "
+            "to check availability for a different service. Kindly wait a moment."
+        )
+        from agents.scheduler_agent import SchedulerAgent
+        return SchedulerAgent(chat_ctx=self.chat_ctx)
 
     # ------------------------------------------------------------------
     # Booking finalization (private)
