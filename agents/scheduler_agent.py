@@ -121,11 +121,15 @@ class SchedulerAgent(BaseAgent):
         if not userdata.requested_time:
             missing.append("time preference")
 
-        is_reentry = bool(self.chat_ctx and self.chat_ctx.items)
+        # Re-entry is set explicitly by the transferring agent via the
+        # reentry_target flag. chat_ctx.items is not reliable — it's always
+        # populated (system prompt on init, prior turns from FrontDesk on
+        # normal forward transfer).
+        is_reentry = userdata.runtime_tool_facts.pop("reentry_target", None) == "scheduler"
         if is_reentry:
             await self.session.say(
                 "Welcome back to the Scheduling Department. "
-                "Let me help you check availability."
+                "Let me help you check availability for a different service."
             )
         else:
             await self.session.say(
@@ -973,6 +977,7 @@ class SchedulerAgent(BaseAgent):
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
         reset_booking_state(userdata)
+        userdata.runtime_tool_facts["reentry_target"] = "frontdesk"
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",

@@ -42,7 +42,11 @@ class FrontDeskAgent(BaseAgent):
         re-entry (defense in depth).
         """
         userdata = self.session.userdata
-        is_reentry = bool(self.chat_ctx and self.chat_ctx.items)
+        # Re-entry is set explicitly by the transferring agent via the
+        # reentry_target flag in runtime_tool_facts. chat_ctx.items is not a
+        # reliable signal because LiveKit populates chat_ctx with the system
+        # prompt on init, so it's non-empty even on first entry.
+        is_reentry = userdata.runtime_tool_facts.pop("reentry_target", None) == "frontdesk"
 
         if is_reentry:
             userdata.runtime_tool_facts["frontdesk_awaiting_fresh_turn"] = True

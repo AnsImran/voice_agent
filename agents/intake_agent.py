@@ -211,6 +211,7 @@ class IntakeAgent(BaseAgent):
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
         reset_booking_state(userdata)
+        userdata.runtime_tool_facts["reentry_target"] = "frontdesk"
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",
@@ -239,6 +240,7 @@ class IntakeAgent(BaseAgent):
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
         reset_booking_state(userdata)
+        userdata.runtime_tool_facts["reentry_target"] = "scheduler"
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",
