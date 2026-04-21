@@ -55,19 +55,39 @@ class IntakeAgent(BaseAgent):
         )
 
         if profile_complete:
+            # On re-entry, DO NOT silently reuse the profile. The caller might
+            # be booking for a second dog, or with different contact info.
+            # Speak the on-file profile back and ask if it applies.
+            weight = int(userdata.dog_weight_lbs or 0)
+            size = (userdata.dog_size or "").replace("x-large", "extra-large")
+            size_clause = f" ({size})" if size else ""
+            phone_display = userdata.phone or "not on file"
+
             await self.session.say(
-                "Welcome back to the Intake Department. "
-                "I still have your contact details on file."
+                f"Welcome back to the Intake Department. I have you on file as "
+                f"{userdata.name}, phone {phone_display}, with a {weight}-pound "
+                f"dog{size_clause}. Is this booking for the same dog and contact "
+                "info, or does anything need to change?"
             )
-            await self._speak_readback()
             await self.session.generate_reply(
                 instructions=(
-                    "You have already read the booking details back to the caller. "
-                    "Wait for their answer. If they confirm it is correct, call "
-                    "confirm_booking_details() to finalize. If they say something is "
-                    "wrong (wrong service, wrong date, wrong time), call "
-                    "correct_booking() to transfer to Scheduling so they can pick "
-                    "the right slot."
+                    "Wait for the caller's answer about whether the profile on file "
+                    "still applies to THIS booking. "
+                    "- If they say it's the same / correct / yes, call _speak_readback "
+                    "indirectly by proceeding: your next step is to inform them you "
+                    "will now confirm the booking details, then the system will "
+                    "read them back automatically. To trigger this, call "
+                    "proceed_to_readback(). "
+                    "- If they say the dog's weight is different, call "
+                    "update_dog_weight(weight_lbs=<new>). "
+                    "- If they say the phone number is different, call "
+                    "update_phone(phone=<new>). "
+                    "- If they say the name is different, call "
+                    "update_customer_name(name=<new>). "
+                    "After any update tool, the system re-reads the updated profile "
+                    "and you continue the flow. Never assume the caller has said "
+                    "'same' — they must say so explicitly before you call "
+                    "proceed_to_readback."
                 )
             )
             return
@@ -96,10 +116,10 @@ class IntakeAgent(BaseAgent):
     async def _speak_readback(self) -> None:
         """Speak the current booking details back to the caller before finalizing.
 
-        Pulls service_label, date, time from runtime_tool_facts['confirmed_slot']
-        (populated by SchedulerAgent.book_slot) and computes a preview quote
-        using the dog_size collected in this Intake session. The caller then
-        confirms or requests a correction.
+        For grooming (where price depends on dog size), includes the dog's
+        weight and size tier so the caller can catch stale profile data.
+        For other services (flat pricing), dog size is omitted since it
+        doesn't affect the price and only adds clutter.
         """
         userdata = self.session.userdata
         slot = userdata.runtime_tool_facts.get("confirmed_slot", {})
@@ -117,9 +137,18 @@ class IntakeAgent(BaseAgent):
         total_str = f"${float(quote['total']):.2f}"
 
         time_clause = f" at {booking_time}" if booking_time else ""
+
+        # For grooming, the dog's weight drives the price — include it in the
+        # read-back so the caller can catch stale weight from a prior booking.
+        dog_clause = ""
+        if service_family == "grooming" and userdata.dog_weight_lbs:
+            weight = int(userdata.dog_weight_lbs)
+            size = (userdata.dog_size or "").replace("x-large", "extra-large")
+            dog_clause = f" for a {weight}-pound {size} dog" if size else f" for a {weight}-pound dog"
+
         await self.session.say(
             f"Let me read your booking back to make sure it's correct: "
-            f"{service_label} on {booking_date}{time_clause}, total {total_str}. "
+            f"{service_label}{dog_clause} on {booking_date}{time_clause}, total {total_str}. "
             "Is that right?"
         )
 
@@ -291,6 +320,99 @@ class IntakeAgent(BaseAgent):
         )
         from agents.scheduler_agent import SchedulerAgent
         return SchedulerAgent(chat_ctx=self.chat_ctx)
+
+    # ------------------------------------------------------------------
+    # Inline profile-update tools (used during read-back / re-entry)
+    # ------------------------------------------------------------------
+
+    @function_tool
+    async def update_dog_weight(
+        self,
+        context: RunContext_T,
+        weight_lbs: float,
+    ) -> str:
+        """Update the dog's weight on file and re-read the booking back.
+
+        Use when the caller says the dog's weight on file is wrong — e.g.
+        "this booking is for a different dog, 110 pounds" or "actually my
+        dog is 90 pounds". This updates userdata.dog_weight_lbs and the
+        derived size tier, then speaks the updated booking (with the new
+        price) back to the caller.
+
+        Args:
+            context: RunContext with userdata
+            weight_lbs: The dog's weight in pounds (2-300)
+        """
+        if weight_lbs < 2 or weight_lbs > 300:
+            return (
+                "WEIGHT_INVALID: Weight must be between 2 and 300 pounds. "
+                "Ask the caller to confirm the weight."
+            )
+        userdata = context.userdata
+        old_weight = userdata.dog_weight_lbs
+        userdata.dog_weight_lbs = weight_lbs
+        userdata.dog_size = derive_dog_size_from_weight(weight_lbs)
+        # Re-speak the updated booking so caller hears the new price
+        await self._speak_readback()
+        return (
+            f"DOG_WEIGHT_UPDATED: was {old_weight}, now {weight_lbs} lbs "
+            f"({userdata.dog_size}). The read-back has been spoken again with "
+            "the new price. Wait for the caller's answer. If they say yes, "
+            "call confirm_booking_details. If they want to change something "
+            "else, call the matching update tool."
+        )
+
+    @function_tool
+    async def update_phone(
+        self,
+        context: RunContext_T,
+        phone: str,
+    ) -> str:
+        """Update the phone number on file and re-read the booking back."""
+        if not validate_phone(phone):
+            return (
+                "PHONE_INVALID: The phone number must have at least 10 digits. "
+                "Ask the caller to repeat their phone number."
+            )
+        userdata = context.userdata
+        userdata.phone = phone
+        await self._speak_readback()
+        return (
+            f"PHONE_UPDATED: now {phone}. The read-back has been spoken again. "
+            "Wait for the caller's answer."
+        )
+
+    @function_tool
+    async def update_customer_name(
+        self,
+        context: RunContext_T,
+        name: str,
+    ) -> str:
+        """Update the customer name on file and re-read the booking back."""
+        userdata = context.userdata
+        userdata.name = name
+        await self._speak_readback()
+        return (
+            f"NAME_UPDATED: now {name}. The read-back has been spoken again. "
+            "Wait for the caller's answer."
+        )
+
+    @function_tool
+    async def proceed_to_readback(self, context: RunContext_T) -> str:
+        """Speak the booking read-back to the caller.
+
+        Use this on re-entry ONLY after the caller has explicitly confirmed
+        that the profile on file (name, phone, dog) still applies to this
+        booking. Do not call it before the caller says "same" / "yes" /
+        "correct" to the profile-applicability question.
+        """
+        await self._speak_readback()
+        return (
+            "READBACK_SPOKEN. Wait for the caller's answer. If they confirm, "
+            "call confirm_booking_details. If they say something is wrong, "
+            "call the matching update tool (update_dog_weight, update_phone, "
+            "update_customer_name) or correct_booking for service/date/time issues."
+        )
 
     # ------------------------------------------------------------------
     # Transfer tool
