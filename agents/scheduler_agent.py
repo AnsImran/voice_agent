@@ -53,6 +53,20 @@ def _format_slot_datetime(iso_str: str) -> str:
     return f"{time_part} on {date_part}"
 
 
+def _iso_or_hhmm_to_hhmm(value: str) -> str:
+    """Normalize stored slot time to HH:MM regardless of source.
+
+    '2026-04-28T09:00' -> '09:00'  (Gingr returns ISO datetimes)
+    '09:00'            -> '09:00'  (mock provider returns HH:MM directly)
+    ''                 -> ''
+    """
+    if not value:
+        return ""
+    if "T" in value and len(value) >= 16:
+        return value[11:16]
+    return value
+
+
 def _parse_time_to_hhmm(value: str) -> str | None:
     """Convert a caller time expression to HH:MM, or None if vague/unrecognised.
 
@@ -671,10 +685,6 @@ class SchedulerAgent(BaseAgent):
             service_plan=service_plan,
         )
 
-        await self.session.say(
-            "Great. I'm confirming that slot now. Kindly wait a moment."
-        )
-
         selection_value = service_plan or service or userdata.service_plan or userdata.service_family
         service_family, selected_plan = self._resolve_selection(userdata, selection_value)
         service_label = get_service_display_label(service_family, selected_plan)
@@ -748,7 +758,8 @@ class SchedulerAgent(BaseAgent):
                         "Please call check_availability with a specific time first."
                     )
 
-            confirmed_time = gingr.get("requested_start") or time
+            confirmed_time_raw = gingr.get("requested_start") or time
+            confirmed_time = _iso_or_hhmm_to_hhmm(confirmed_time_raw)
             duration_min = gingr.get("duration_minutes") or 60
             duration_str = f"{duration_min} minutes"
             staff = "Happy Hound Grooming Team"

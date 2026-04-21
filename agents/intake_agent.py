@@ -41,12 +41,13 @@ class IntakeAgent(BaseAgent):
         super().__init__(**agent_kwargs)
 
     async def on_enter(self) -> None:
-        """Greet the caller and prompt for the first piece of profile info.
+        """Greet the caller and either read back the booking (if profile is
+        already on file) or start collecting profile info.
 
-        If the caller already completed intake once in this session (e.g. they
-        booked one service, then came back for a second service), we already
-        have name/phone/weight — skip straight to finalization instead of
-        re-asking.
+        Finalization NEVER happens automatically on entry. The caller must
+        verbally confirm the read-back first (via the confirm_booking_details
+        tool) — this gives them a chance to catch wrong service / wrong time
+        BEFORE the email is sent.
         """
         userdata = self.session.userdata
         profile_complete = bool(
@@ -56,14 +57,19 @@ class IntakeAgent(BaseAgent):
         if profile_complete:
             await self.session.say(
                 "Welcome back to the Intake Department. "
-                "I still have your contact details, so let me finalize this booking now."
+                "I still have your contact details on file."
             )
-
-            class _ReuseCtx:
-                pass
-            ctx = _ReuseCtx()
-            ctx.userdata = userdata
-            await self._finalize_booking(ctx)
+            await self._speak_readback()
+            await self.session.generate_reply(
+                instructions=(
+                    "You have already read the booking details back to the caller. "
+                    "Wait for their answer. If they confirm it is correct, call "
+                    "confirm_booking_details() to finalize. If they say something is "
+                    "wrong (wrong service, wrong date, wrong time), call "
+                    "correct_booking() to transfer to Scheduling so they can pick "
+                    "the right slot."
+                )
+            )
             return
 
         await self.session.say(
@@ -85,6 +91,36 @@ class IntakeAgent(BaseAgent):
                 f"Ask for the first missing detail: {missing_parts[0]}. "
                 "Do not list all the missing fields in one turn — ask one at a time."
             )
+        )
+
+    async def _speak_readback(self) -> None:
+        """Speak the current booking details back to the caller before finalizing.
+
+        Pulls service_label, date, time from runtime_tool_facts['confirmed_slot']
+        (populated by SchedulerAgent.book_slot) and computes a preview quote
+        using the dog_size collected in this Intake session. The caller then
+        confirms or requests a correction.
+        """
+        userdata = self.session.userdata
+        slot = userdata.runtime_tool_facts.get("confirmed_slot", {})
+        service_family = slot.get("service_family") or userdata.service_family or "daycare"
+        service_plan = slot.get("service_plan") or userdata.service_plan
+        service_label = slot.get("service_label") or get_service_display_label(service_family, service_plan)
+        booking_date = slot.get("date") or userdata.requested_date or "today"
+        booking_time = slot.get("time") or userdata.requested_time or ""
+
+        quote = compute_selection_quote(
+            service_family=service_family,
+            service_plan=service_plan,
+            dog_size=userdata.dog_size,
+        )
+        total_str = f"${float(quote['total']):.2f}"
+
+        time_clause = f" at {booking_time}" if booking_time else ""
+        await self.session.say(
+            f"Let me read your booking back to make sure it's correct: "
+            f"{service_label} on {booking_date}{time_clause}, total {total_str}. "
+            "Is that right?"
         )
 
     # ------------------------------------------------------------------
@@ -176,14 +212,16 @@ class IntakeAgent(BaseAgent):
     async def confirm_dog_weight(self, context: RunContext_T) -> str:
         """Confirm the dog weight after the caller has verified the read-back.
 
-        If all profile fields are now complete, this automatically finalizes
-        the booking (computes quote, generates booking ID, sends handoff email).
+        Does NOT finalize the booking. Instead, reads the full booking details
+        (service, date, time, price) back to the caller and waits for them to
+        verbally confirm before any email is sent. The LLM must then call
+        confirm_booking_details() on explicit caller confirmation, or
+        correct_booking() if the caller says something is wrong.
         """
         userdata = context.userdata
         if not userdata.dog_weight_lbs:
             return "ERROR: No dog weight recorded yet. Call record_dog_weight first."
 
-        # Check if profile is complete
         if not (userdata.name and userdata.phone and userdata.dog_weight_lbs):
             missing = []
             if not userdata.name:
@@ -195,8 +233,64 @@ class IntakeAgent(BaseAgent):
                 "Continue collecting the missing details."
             )
 
-        # Profile complete — finalize booking
+        # Profile complete — speak the read-back and wait for caller verification.
+        await self._speak_readback()
+        return (
+            "WEIGHT_CONFIRMED, PROFILE_COMPLETE, READBACK_SPOKEN. "
+            "You have read the booking details to the caller. Wait for their answer. "
+            "If they confirm it is correct, call confirm_booking_details() to finalize. "
+            "If they say something is wrong (wrong service, wrong date, wrong time), "
+            "call correct_booking() to transfer back to Scheduling."
+        )
+
+    @function_tool
+    async def confirm_booking_details(self, context: RunContext_T) -> str:
+        """Finalize the booking AFTER the caller has verbally confirmed the read-back.
+
+        Call ONLY when the caller has explicitly said yes to the service, date,
+        time, and price you just read back. This triggers quote computation,
+        booking ID generation, and the SMTP handoff email.
+        """
         return await self._finalize_booking(context)
+
+    @function_tool
+    async def correct_booking(
+        self,
+        context: RunContext_T,
+        what_is_wrong: str,
+    ) -> BaseAgent:
+        """Transfer to Scheduling when the caller says the read-back is wrong.
+
+        Clears the current booking state (service, date, time, confirmed slot)
+        so Scheduler can re-select. Customer profile (name/phone/weight) is
+        preserved — caller won't have to give those again.
+
+        Args:
+            context: RunContext with userdata
+            what_is_wrong: Short description of what the caller said was wrong
+                (e.g. "wanted Full Groom not Basic Bath", "wrong date")
+        """
+        userdata = context.userdata
+        trace_id = ensure_session_trace_id(userdata)
+        reset_booking_state(userdata)
+        userdata.runtime_tool_facts["reentry_target"] = "scheduler"
+        userdata.runtime_tool_facts["correction_reason"] = what_is_wrong
+        trace_log(
+            logger=logger,
+            flag_name="HH_TRACE_HANDOFFS",
+            trace_id=trace_id,
+            message="intake.correct_booking",
+            from_agent="IntakeAgent",
+            to_agent="SchedulerAgent",
+            reason=what_is_wrong,
+            summary=userdata.summarize(),
+        )
+        await self.session.say(
+            f"I'm sorry about that. I'm transferring you back to our Scheduling "
+            f"Department to fix it. Kindly wait a moment."
+        )
+        from agents.scheduler_agent import SchedulerAgent
+        return SchedulerAgent(chat_ctx=self.chat_ctx)
 
     # ------------------------------------------------------------------
     # Transfer tool

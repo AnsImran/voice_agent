@@ -84,6 +84,76 @@ GROOMING_PRICING_BY_SIZE = {
 }
 
 
+# Canonical catalog of grooming variants. Keyed by service_plan id.
+# Prices must match business_facts.yaml. When a caller asks for a specific
+# grooming service, resolve_grooming_service() maps the natural-language
+# phrase to one of these ids, which then drives label + pricing + duration.
+GROOMING_SERVICES = {
+    "basic_bath": {
+        "label": "Basic Bath",
+        "duration_min": 60,
+        "pricing_by_size": {"small": 55.0, "medium": 70.0, "large": 90.0, "x-large": 90.0},
+    },
+    "basic_bath_plus": {
+        "label": "Basic Bath Plus",
+        "duration_min": 60,
+        "pricing_by_size": {"small": 63.0, "medium": 78.0, "large": 98.0, "x-large": 98.0},
+    },
+    "deluxe_bath": {
+        "label": "Deluxe Bath",
+        "duration_min": 75,
+        "pricing_by_size": {"small": 75.0, "medium": 90.0, "large": 110.0, "x-large": 110.0},
+    },
+    "deluxe_bath_plus": {
+        "label": "Deluxe Bath Plus",
+        "duration_min": 75,
+        "pricing_by_size": {"small": 90.0, "medium": 105.0, "large": 125.0, "x-large": 125.0},
+    },
+    "mini_groom": {
+        "label": "Mini Groom",
+        "duration_min": 90,
+        "pricing_by_size": {"small": 90.0, "medium": 126.0, "large": 156.0, "x-large": 216.0},
+    },
+    "full_groom": {
+        "label": "Full Groom",
+        "duration_min": 90,
+        "pricing_by_size": {"small": 114.0, "medium": 150.0, "large": 180.0, "x-large": 240.0},
+    },
+}
+
+
+# Ordered longest-phrase-first so "deluxe bath plus" matches before "deluxe bath".
+GROOMING_ALIASES: list[tuple[str, str]] = [
+    ("deluxe bath plus", "deluxe_bath_plus"),
+    ("basic bath plus", "basic_bath_plus"),
+    ("deluxe bath", "deluxe_bath"),
+    ("basic bath", "basic_bath"),
+    ("full groom", "full_groom"),
+    ("mini groom", "mini_groom"),
+    ("fullgroom", "full_groom"),
+    ("minigroom", "mini_groom"),
+]
+
+
+def resolve_grooming_service(text: str | None) -> tuple[str | None, str | None]:
+    """Map a caller's natural-language grooming phrase to canonical (id, label).
+
+    Examples:
+        'Full Groom'            -> ('full_groom', 'Full Groom')
+        'mini groom my dog'     -> ('mini_groom', 'Mini Groom')
+        'Deluxe Bath Plus'      -> ('deluxe_bath_plus', 'Deluxe Bath Plus')
+        'grooming'              -> (None, None)  -- too generic, caller falls back
+        None                    -> (None, None)
+    """
+    if not text:
+        return (None, None)
+    lowered = text.strip().lower()
+    for alias, service_id in GROOMING_ALIASES:
+        if alias in lowered:
+            return (service_id, GROOMING_SERVICES[service_id]["label"])
+    return (None, None)
+
+
 @dataclass
 class AvailabilitySlot:
     """Provider-normalized availability slot."""
@@ -142,7 +212,13 @@ def resolve_service_selection(
     existing_family: str | None = None,
     existing_plan: str | None = None,
 ) -> tuple[str, str | None]:
-    """Resolve service family + package plan from a user/tool value."""
+    """Resolve service family + package plan from a user/tool value.
+
+    For grooming, the returned service_plan is the canonical grooming service
+    id (e.g. 'full_groom', 'deluxe_bath') when the text matches a grooming
+    alias. This lets downstream pricing/labeling know which specific grooming
+    service the caller asked for.
+    """
     plan = normalize_service_plan(value)
     if plan:
         return SERVICE_PLAN_META[plan]["family"], plan
@@ -150,12 +226,22 @@ def resolve_service_selection(
     text = (value or "").strip().lower()
     family = normalize_service(value or existing_family)
 
+    # Grooming: try to identify the specific grooming service variant.
+    if family == "grooming":
+        groom_id, _ = resolve_grooming_service(text)
+        if groom_id:
+            return "grooming", groom_id
+        # No specific variant matched. Preserve existing grooming plan if any.
+        if existing_plan and existing_plan in GROOMING_SERVICES:
+            return "grooming", existing_plan
+        return "grooming", None
+
     # Explicit drop-in/day-visit wording means no package plan.
     if any(token in text for token in ("drop-in", "drop in", "day visit", "simple daycare")):
         return "daycare", None
 
     # If caller references only the family and an existing plan matches, preserve plan.
-    if existing_plan and SERVICE_PLAN_META[existing_plan]["family"] == family:
+    if existing_plan and existing_plan in SERVICE_PLAN_META and SERVICE_PLAN_META[existing_plan]["family"] == family:
         if not text or family in text:
             return family, existing_plan
 
@@ -166,6 +252,8 @@ def get_service_display_label(service_family: str, service_plan: str | None) -> 
     """Return user-facing service label."""
     if service_plan and service_plan in SERVICE_PLAN_META:
         return str(SERVICE_PLAN_META[service_plan]["label"])
+    if service_family == "grooming" and service_plan and service_plan in GROOMING_SERVICES:
+        return str(GROOMING_SERVICES[service_plan]["label"])
     return str(SERVICE_META[service_family]["label"])
 
 
@@ -187,6 +275,22 @@ def compute_selection_quote(
             "total": total,
             "billing_cycle": str(plan_meta["billing_cycle"]),
             "quote_notes": str(plan_meta["quote_notes"]),
+        }
+
+    # Grooming with a specific service id: use the catalog's per-size pricing.
+    if service_family == "grooming" and service_plan and service_plan in GROOMING_SERVICES:
+        groom_meta = GROOMING_SERVICES[service_plan]
+        size_key = (dog_size or "").lower()
+        subtotal = float(groom_meta["pricing_by_size"].get(size_key, 90.0))
+        tax = 0.0
+        total = subtotal + tax
+        return {
+            "label": str(groom_meta["label"]),
+            "subtotal": subtotal,
+            "tax": tax,
+            "total": total,
+            "billing_cycle": "per_visit",
+            "quote_notes": f"{groom_meta['label']} ({groom_meta['duration_min']} min).",
         }
 
     subtotal = _compute_price(service_family, dog_size=dog_size)
