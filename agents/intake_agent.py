@@ -283,27 +283,19 @@ class IntakeAgent(BaseAgent):
         return await self._finalize_booking(context)
 
     @function_tool
-    async def correct_booking(
-        self,
-        context: RunContext_T,
-        what_is_wrong: str,
-    ) -> BaseAgent:
+    async def correct_booking(self, context: RunContext_T) -> BaseAgent:
         """Transfer to Scheduling when the caller says the read-back is wrong.
 
         Clears the current booking state (service, date, time, confirmed slot)
         so Scheduler can re-select. Customer profile (name/phone/weight) is
-        preserved — caller won't have to give those again.
-
-        Args:
-            context: RunContext with userdata
-            what_is_wrong: Short description of what the caller said was wrong
-                (e.g. "wanted Full Groom not Basic Bath", "wrong date")
+        preserved — caller won't have to give those again. Scheduler's on_enter
+        will ask the caller what they actually want, so no description of the
+        correction is needed at this layer.
         """
         userdata = context.userdata
         trace_id = ensure_session_trace_id(userdata)
         reset_booking_state(userdata)
         userdata.runtime_tool_facts["reentry_target"] = "scheduler"
-        userdata.runtime_tool_facts["correction_reason"] = what_is_wrong
         trace_log(
             logger=logger,
             flag_name="HH_TRACE_HANDOFFS",
@@ -311,7 +303,6 @@ class IntakeAgent(BaseAgent):
             message="intake.correct_booking",
             from_agent="IntakeAgent",
             to_agent="SchedulerAgent",
-            reason=what_is_wrong,
             summary=userdata.summarize(),
         )
         await self.session.say(
