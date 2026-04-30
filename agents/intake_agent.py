@@ -69,27 +69,12 @@ class IntakeAgent(BaseAgent):
                 f"dog{size_clause}. Is this booking for the same dog and contact "
                 "info, or does anything need to change?"
             )
-            await self.session.generate_reply(
-                instructions=(
-                    "Wait for the caller's answer about whether the profile on file "
-                    "still applies to THIS booking. "
-                    "- If they say it's the same / correct / yes, call _speak_readback "
-                    "indirectly by proceeding: your next step is to inform them you "
-                    "will now confirm the booking details, then the system will "
-                    "read them back automatically. To trigger this, call "
-                    "proceed_to_readback(). "
-                    "- If they say the dog's weight is different, call "
-                    "update_dog_weight(weight_lbs=<new>). "
-                    "- If they say the phone number is different, call "
-                    "update_phone(phone=<new>). "
-                    "- If they say the name is different, call "
-                    "update_customer_name(name=<new>). "
-                    "After any update tool, the system re-reads the updated profile "
-                    "and you continue the flow. Never assume the caller has said "
-                    "'same' — they must say so explicitly before you call "
-                    "proceed_to_readback."
-                )
-            )
+            # Do NOT call generate_reply here. Generating a reply at this
+            # moment causes the LLM to speak a paraphrase of the question we
+            # just asked — caller hears the same question twice. Instead,
+            # wait silently for the caller's answer; the prompt's WORKFLOW
+            # (re-entry) section already tells the LLM which tool to call
+            # for "same" / "different dog" / "different phone" / etc.
             return
 
         await self.session.say(
@@ -264,13 +249,7 @@ class IntakeAgent(BaseAgent):
 
         # Profile complete — speak the read-back and wait for caller verification.
         await self._speak_readback()
-        return (
-            "WEIGHT_CONFIRMED, PROFILE_COMPLETE, READBACK_SPOKEN. "
-            "You have read the booking details to the caller. Wait for their answer. "
-            "If they confirm it is correct, call confirm_booking_details() to finalize. "
-            "If they say something is wrong (wrong service, wrong date, wrong time), "
-            "call correct_booking() to transfer back to Scheduling."
-        )
+        return "READBACK_SPOKEN"
 
     @function_tool
     async def confirm_booking_details(self, context: RunContext_T) -> str:
@@ -305,10 +284,14 @@ class IntakeAgent(BaseAgent):
             to_agent="SchedulerAgent",
             summary=userdata.summarize(),
         )
-        await self.session.say(
-            f"I'm sorry about that. I'm transferring you back to our Scheduling "
-            f"Department to fix it. Kindly wait a moment."
+        handle = await self.session.say(
+            "I'm sorry about that. I'm transferring you back to our Scheduling "
+            "Department to fix it. Kindly wait a moment."
         )
+        try:
+            await handle.wait_for_playout()
+        except Exception:
+            pass
         from agents.scheduler_agent import SchedulerAgent
         return SchedulerAgent(chat_ctx=self.chat_ctx)
 
@@ -345,13 +328,7 @@ class IntakeAgent(BaseAgent):
         userdata.dog_size = derive_dog_size_from_weight(weight_lbs)
         # Re-speak the updated booking so caller hears the new price
         await self._speak_readback()
-        return (
-            f"DOG_WEIGHT_UPDATED: was {old_weight}, now {weight_lbs} lbs "
-            f"({userdata.dog_size}). The read-back has been spoken again with "
-            "the new price. Wait for the caller's answer. If they say yes, "
-            "call confirm_booking_details. If they want to change something "
-            "else, call the matching update tool."
-        )
+        return "DOG_WEIGHT_UPDATED_AND_READBACK_SPOKEN"
 
     @function_tool
     async def update_phone(
@@ -368,10 +345,7 @@ class IntakeAgent(BaseAgent):
         userdata = context.userdata
         userdata.phone = phone
         await self._speak_readback()
-        return (
-            f"PHONE_UPDATED: now {phone}. The read-back has been spoken again. "
-            "Wait for the caller's answer."
-        )
+        return "PHONE_UPDATED_AND_READBACK_SPOKEN"
 
     @function_tool
     async def update_customer_name(
@@ -383,10 +357,7 @@ class IntakeAgent(BaseAgent):
         userdata = context.userdata
         userdata.name = name
         await self._speak_readback()
-        return (
-            f"NAME_UPDATED: now {name}. The read-back has been spoken again. "
-            "Wait for the caller's answer."
-        )
+        return "NAME_UPDATED_AND_READBACK_SPOKEN"
 
     @function_tool
     async def proceed_to_readback(self, context: RunContext_T) -> str:
@@ -398,12 +369,7 @@ class IntakeAgent(BaseAgent):
         "correct" to the profile-applicability question.
         """
         await self._speak_readback()
-        return (
-            "READBACK_SPOKEN. Wait for the caller's answer. If they confirm, "
-            "call confirm_booking_details. If they say something is wrong, "
-            "call the matching update tool (update_dog_weight, update_phone, "
-            "update_customer_name) or correct_booking for service/date/time issues."
-        )
+        return "READBACK_SPOKEN"
 
     # ------------------------------------------------------------------
     # Transfer tool
@@ -428,10 +394,14 @@ class IntakeAgent(BaseAgent):
             to_agent="FrontDeskAgent",
             summary=userdata.summarize(),
         )
-        await self.session.say(
+        handle = await self.session.say(
             "Sure. I'm now transferring your call back to our Front Desk Department. "
             "Kindly wait a moment while I connect you."
         )
+        try:
+            await handle.wait_for_playout()
+        except Exception:
+            pass
         from agents.frontdesk_agent import FrontDeskAgent
         return FrontDeskAgent(chat_ctx=self.chat_ctx)
 
@@ -457,10 +427,14 @@ class IntakeAgent(BaseAgent):
             to_agent="SchedulerAgent",
             summary=userdata.summarize(),
         )
-        await self.session.say(
+        handle = await self.session.say(
             "Sure. I'm now transferring you back to our Scheduling Department "
             "to check availability for a different service. Kindly wait a moment."
         )
+        try:
+            await handle.wait_for_playout()
+        except Exception:
+            pass
         from agents.scheduler_agent import SchedulerAgent
         return SchedulerAgent(chat_ctx=self.chat_ctx)
 
@@ -586,9 +560,15 @@ class IntakeAgent(BaseAgent):
             "Is there anything else I can help you with today?"
         )
 
+        # Reset booking-specific state so a subsequent booking in the same call
+        # starts with a clean slot (Scheduler will ask date/time fresh instead
+        # of auto-confirming the just-finalized values). Customer profile
+        # (name, phone, dog) is preserved by reset_booking_state.
+        reset_booking_state(userdata)
+
         return (
-            f"BOOKING_FINALIZED: Booking ID {booking_id}, {service_label} on {booking_date} at {booking_time}. "
-            f"Total: ${float(quote['total']):.2f}. Email {'sent' if userdata.handoff_status == 'sent' else 'pending'}. "
-            "The confirmation has been spoken to the caller. If they have more questions, answer from the business facts. "
-            "If they want to book another service, call return_to_frontdesk()."
+            "FINALIZED. The system has already spoken the confirmation to the caller "
+            "with the reference number. DO NOT repeat the booking details, the "
+            "reference number, or the confirmation phrase. End your turn silently "
+            "unless the caller asks a new question."
         )

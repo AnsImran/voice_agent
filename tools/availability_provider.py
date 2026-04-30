@@ -290,7 +290,14 @@ def compute_selection_quote(
             "tax": tax,
             "total": total,
             "billing_cycle": "per_visit",
-            "quote_notes": f"{groom_meta['label']} ({groom_meta['duration_min']} min).",
+            # Duration intentionally omitted here. The canonical grooming
+            # duration comes from confirmed_slot["duration"] (Gingr-derived,
+            # via DEFAULT_SERVICE_DURATION_MINUTES in gingr_availability.py)
+            # and is already included in Intake's quote_notes via duration_str.
+            # Including a second duration here caused conflicting numbers in
+            # the email (e.g. "Full Groom at 2:30 PM (120 minutes). Full Groom
+            # (90 min)." — two different durations side by side).
+            "quote_notes": f"{groom_meta['label']}.",
         }
 
     subtotal = _compute_price(service_family, dog_size=dog_size)
