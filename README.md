@@ -24,19 +24,19 @@ plus a parallel observer.
 
 ```mermaid
 graph TD
-    User([Caller]) <--> FD[FrontDeskAgent]
-    FD -- start_booking --> SC[SchedulerAgent]
-    SC -- book_slot --> IN[IntakeAgent]
-    IN -- confirm_booking_details --> END([Finalize + SMTP Handoff])
+    User(["Caller"]) <--> FD["FrontDeskAgent"]
+    FD -->|"start_booking"| SC["SchedulerAgent"]
+    SC -->|"book_slot"| IN["IntakeAgent"]
+    IN -->|"confirm_booking_details"| END(["Finalize + SMTP Handoff"])
 
-    SC -. return_to_frontdesk .-> FD
-    IN -. return_to_scheduler .-> SC
-    IN -. return_to_frontdesk .-> FD
-    IN -. correct_booking .-> SC
+    SC -.->|"return_to_frontdesk"| FD
+    IN -.->|"return_to_scheduler"| SC
+    IN -.->|"return_to_frontdesk"| FD
+    IN -.->|"correct_booking"| SC
 
-    OB[[ObserverAgent]] -. parallel audit .-> FD
-    OB -. parallel audit .-> SC
-    OB -. parallel audit .-> IN
+    OB[["ObserverAgent"]] -.->|"parallel audit"| FD
+    OB -.->|"parallel audit"| SC
+    OB -.->|"parallel audit"| IN
 ```
 
 Notes:
@@ -95,39 +95,39 @@ means "needs / uses the thing it points to".
 
 ```mermaid
 graph TD
-    START([Start here: agent.py])
+    START(["Start here: agent.py"])
 
-    START --> SESS[LiveKit AgentSession\nwires phone audio + AI]
-    START --> AGENTS{The 4 staff agents}
+    START --> SESS["LiveKit AgentSession<br/>wires phone audio + AI"]
+    START --> AGENTS{"The 4 staff agents"}
 
-    AGENTS --> FD[FrontDeskAgent]
-    AGENTS --> SC[SchedulerAgent]
-    AGENTS --> IN[IntakeAgent]
-    AGENTS --> OB[ObserverAgent]
+    AGENTS --> FD["FrontDeskAgent"]
+    AGENTS --> SC["SchedulerAgent"]
+    AGENTS --> IN["IntakeAgent"]
+    AGENTS --> OB["ObserverAgent"]
 
-    FD --> BASE[base_agent.py\nshared clipboard + reset]
+    FD --> BASE["base_agent.py<br/>shared clipboard + reset"]
     SC --> BASE
     IN --> BASE
     OB --> BASE
 
-    FD --> UTILS[utils.py\nloads rulebook + voices]
+    FD --> UTILS["utils.py<br/>loads rulebook + voices"]
     SC --> UTILS
     IN --> UTILS
 
-    FD --> CAT[availability_provider.py\nprice list + catalog]
+    FD --> CAT["availability_provider.py<br/>price list + catalog"]
     SC --> CAT
     IN --> CAT
-    SC --> GINGR[gingr_availability.py\nreal grooming calendar]
-    IN --> MAIL[handoff_email_tools.py\nthe mailroom]
+    SC --> GINGR["gingr_availability.py<br/>real grooming calendar"]
+    IN --> MAIL["handoff_email_tools.py<br/>the mailroom"]
 
-    UTILS --> RULES[(prompts/*.yaml\n+ business_facts.yaml\nthe rulebook)]
-    OB --> FACTS[(business_info_happy_hound.txt\nsupervisor's truth sheet)]
+    UTILS --> RULES[("prompts and business_facts.yaml<br/>the rulebook")]
+    OB --> FACTS[("business_info_happy_hound.txt<br/>supervisor truth sheet")]
 
-    SESS --> LK[[LiveKit Cloud\nphone + transport]]
-    SESS --> LLM[[OpenAI\nthe thinking]]
-    SESS --> DG[[Deepgram\nhearing + speaking]]
-    GINGR --> GAPI[[Gingr API\ngrooming bookings]]
-    MAIL --> SMTP[[Gmail SMTP\nsends the email]]
+    SESS --> LK[["LiveKit Cloud<br/>phone + transport"]]
+    SESS --> LLM[["OpenAI<br/>the thinking"]]
+    SESS --> DG[["Deepgram<br/>hearing + speaking"]]
+    GINGR --> GAPI[["Gingr API<br/>grooming bookings"]]
+    MAIL --> SMTP[["Gmail SMTP<br/>sends the email"]]
 ```
 
 How to read it in one sentence: **`agent.py` starts everything; it creates the
@@ -148,46 +148,46 @@ decision points. Dotted lines are "go back" paths.
 
 ```mermaid
 flowchart TD
-    A([Phone rings]) --> B[Receptionist greets caller]
-    B --> C{What does the caller want?}
-    C -- "Just a question" --> D[Answer from the rulebook]
+    A(["Phone rings"]) --> B["Receptionist greets caller"]
+    B --> C{"What does the caller want?"}
+    C -->|"Just a question"| D["Answer from the rulebook"]
     D --> C
-    C -- "I want to book" --> E[Pass call to Scheduler]
+    C -->|"I want to book"| E["Pass call to Scheduler"]
 
-    E --> F[Scheduler asks: which service, day, time?]
-    F --> G{Grooming?}
-    G -- "Yes" --> H[Check the real grooming calendar]
-    G -- "No (daycare/boarding)" --> I[Treat slot as available]
-    H --> J{Time free?}
-    J -- "No" --> K[Offer the next open time]
+    E --> F["Scheduler asks: which service, day, time?"]
+    F --> G{"Grooming?"}
+    G -->|"Yes"| H["Check the real grooming calendar"]
+    G -->|"No - daycare or boarding"| I["Treat slot as available"]
+    H --> J{"Time free?"}
+    J -->|"No"| K["Offer the next open time"]
     K --> F
-    J -- "Yes" --> L[Caller agrees to the slot]
+    J -->|"Yes"| L["Caller agrees to the slot"]
     I --> L
 
-    L --> M[Pass call to Intake]
-    M --> N{Do we already know this caller?}
-    N -- "No" --> O[Ask name, phone, dog weight]
-    N -- "Yes, returning" --> P[Read profile back: still the same?]
-    P -- "Something changed" --> Q[Update the changed detail]
+    L --> M["Pass call to Intake"]
+    M --> N{"Do we already know this caller?"}
+    N -->|"No"| O["Ask name, phone, dog weight"]
+    N -->|"Yes, returning"| P["Read profile back: still the same?"]
+    P -->|"Something changed"| Q["Update the changed detail"]
     Q --> R
-    P -- "All same" --> R
-    O --> R[Read the WHOLE booking back out loud\nservice, dog size, date, time, price]
+    P -->|"All same"| R
+    O --> R["Read the WHOLE booking back out loud<br/>service, dog size, date, time, price"]
 
-    R --> S{Caller says it is correct?}
-    S -- "No: wrong service/date/time" -.-> E
-    S -- "No: wrong weight/phone/name" --> Q
-    S -- "Yes" --> T[Generate reference number]
-    T --> U[Email the booking to staff]
-    U --> V[Say the confirmation once]
-    V --> W[Wipe booking lines from clipboard\nkeep customer profile]
-    W --> X{Anything else?}
-    X -- "Another booking" -.-> B
-    X -- "No" --> Y([Call ends])
+    R --> S{"Caller says it is correct?"}
+    S -.->|"No: wrong service, date or time"| E
+    S -->|"No: wrong weight, phone or name"| Q
+    S -->|"Yes"| T["Generate reference number"]
+    T --> U["Email the booking to staff"]
+    U --> V["Say the confirmation once"]
+    V --> W["Wipe booking lines from clipboard<br/>keep customer profile"]
+    W --> X{"Anything else?"}
+    X -.->|"Another booking"| B
+    X -->|"No"| Y(["Call ends"])
 
-    SUP[[Supervisor listens to every line\nwhispers a fix if something is wrong]]
-    SUP -. watches .-> B
-    SUP -. watches .-> F
-    SUP -. watches .-> R
+    SUP[["Supervisor listens to every line<br/>whispers a fix if something is wrong"]]
+    SUP -.->|"watches"| B
+    SUP -.->|"watches"| F
+    SUP -.->|"watches"| R
 ```
 
 Plain-language walk-through:
